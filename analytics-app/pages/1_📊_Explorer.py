@@ -219,35 +219,50 @@ with tab1:
         if 'awarded_on' in display_df.columns:
             display_df['awarded_on'] = pd.to_datetime(display_df['awarded_on'], errors='coerce').dt.strftime('%Y-%m-%d')
 
+        # Create clickable links for reference numbers
+        display_df['🔗 Link'] = display_df['reference_number'].apply(
+            lambda x: f"https://purchasing.alberta.ca/posting/{x}"
+        )
+
         # Select columns to display
-        display_columns = ['reference_number', 'short_title', 'actual_value', 'awarded_on', 'region']
+        display_columns = ['🔗 Link', 'reference_number', 'short_title', 'actual_value', 'awarded_on', 'region']
         available_columns = [col for col in display_columns if col in display_df.columns]
 
-        # Display with clickable rows
-        st.dataframe(
+        # Display interactive table with clickable links and row selection
+        event = st.dataframe(
             display_df[available_columns],
             use_container_width=True,
             hide_index=True,
             column_config={
+                "🔗 Link": st.column_config.LinkColumn(
+                    "🔗 Link",
+                    width="small",
+                    help="Click to view original posting on Alberta Purchasing",
+                    max_chars=100
+                ),
                 "reference_number": st.column_config.TextColumn("Reference", width="small"),
                 "short_title": st.column_config.TextColumn("Project Title", width="large"),
                 "actual_value": st.column_config.TextColumn("Award Value", width="medium"),
                 "awarded_on": st.column_config.TextColumn("Award Date", width="medium"),
                 "region": st.column_config.TextColumn("Region", width="medium")
-            }
+            },
+            on_select="rerun",
+            selection_mode="single-row",
+            key="projects_table"
         )
 
         # Project details section
         st.markdown("---")
-        st.subheader("🔍 View Project Details")
+        st.subheader("🔍 Project Details")
 
-        # Select a project to view details
-        project_refs = df['reference_number'].tolist()
-        selected_ref = st.selectbox(
-            "Select a project to view details:",
-            options=project_refs,
-            format_func=lambda x: f"{x} - {df[df['reference_number']==x]['short_title'].values[0][:60]}..."
-        )
+        # Get selected row from table interaction
+        selected_ref = None
+        if event.selection and event.selection.rows:
+            selected_idx = event.selection.rows[0]
+            selected_ref = df.iloc[selected_idx]['reference_number']
+            st.success(f"Selected: **{selected_ref}** - {df.iloc[selected_idx]['short_title']}")
+        else:
+            st.info("👆 Click on any row in the table above to view full project details with all bids")
 
         if selected_ref:
             # Get full project details with bids
