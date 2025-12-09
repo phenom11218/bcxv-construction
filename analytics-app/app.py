@@ -242,15 +242,17 @@ st.markdown("---")
 # Getting started
 st.header("🚀 Getting Started")
 
-st.info("""
-**Phase 1 Complete!** ✓
+st.success("""
+**Phase 2 Complete!** ✓
 
-The database connection is working and you can now:
-1. Verify data access via the sidebar metrics
-2. Check database statistics above
-3. Wait for Phase 2 to start exploring projects
+The Historical Project Explorer is now available:
+1. Navigate to 📊 Explorer in the sidebar
+2. Filter projects by value, region, keywords, and dates
+3. View detailed bid information for any project
+4. Export filtered results to CSV/JSON
+5. Analyze bid statistics and trends
 
-**Coming Next**: Phase 2 will add the Historical Project Explorer page.
+**Coming Next**: Phase 3 will add ML-powered bid prediction.
 """)
 
 # Development status
@@ -262,11 +264,12 @@ with st.expander("📋 Development Roadmap"):
     - [x] Database utilities
     - [x] Basic navigation skeleton
 
-    ### Phase 2: Historical Project Explorer (Next)
-    - [ ] Browse awarded construction projects
-    - [ ] Filter by value, region, keywords
-    - [ ] View project details and bids
-    - [ ] Export functionality
+    ### Phase 2: Historical Project Explorer ✓ COMPLETE
+    - [x] Browse awarded construction projects
+    - [x] Filter by value, region, keywords
+    - [x] View project details and bids
+    - [x] Export to CSV/JSON functionality
+    - [x] Bid statistics and visualizations
 
     ### Phase 3: Text Processing & Similarity Engine
     - [ ] Keyword extraction from titles/descriptions

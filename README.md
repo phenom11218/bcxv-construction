@@ -2,82 +2,347 @@
 
 **Complete platform for scraping, analyzing, and predicting Alberta construction bid data**
 
+![Status](https://img.shields.io/badge/Scraper-Complete-success)
+![Status](https://img.shields.io/badge/Analytics-Phase%202%20Complete-blue)
+![Data](https://img.shields.io/badge/Projects-6,607-informational)
+![Database](https://img.shields.io/badge/Database-461MB-orange)
+
 ---
 
 ## 📊 Project Overview
 
-This unified repository contains both the **data scraper** and the **analytics application** for Alberta government procurement data.
+This unified repository contains both the **data scraper** and the **analytics application** for Alberta government procurement data. The platform enables contractors to analyze historical bid data, compare similar projects, and make data-driven bidding decisions.
 
 ### Components
 
-1. **[scraper/](scraper/)** - Data collection tools (6,607 opportunities collected)
-2. **[analytics-app/](analytics-app/)** - Streamlit web application for bid analytics
-3. **alberta_procurement.db** - Shared database (461 MB, 182,348 records)
+1. **[scraper/](scraper/)** - Data collection from Alberta Purchasing Connection
+   - 6,607 opportunities scraped (2025 complete)
+   - 1,596 construction projects identified
+   - 831 awarded construction contracts with bid data
+
+2. **[analytics-app/](analytics-app/)** - Interactive Streamlit web application
+   - ✅ Phase 1: Database integration & setup
+   - ✅ Phase 2: Historical Project Explorer with filtering & analytics
+   - 🚧 Phase 3: ML-powered bid prediction (coming next)
+
+3. **alberta_procurement.db** - Shared SQLite database
+   - 461 MB, 182,348 total records
+   - 8 tables with comprehensive procurement data
+   - Hybrid storage: Raw JSON + normalized tables
 
 ---
 
 ## 🚀 Quick Start
 
-### Scraper (Data Collection)
-```bash
-cd scraper
-python database_setup.py     # View stats
-python query_database.py      # Interactive queries
-```
-**Full docs**: [scraper/README.md](scraper/README.md)
+### Analytics App (Recommended - Start Here!)
 
-### Analytics App (Web Dashboard)
+The easiest way to explore the data:
+
 ```bash
 cd analytics-app
-python -m venv venv
-source venv/Scripts/activate  # Windows Git Bash
-pip install -r requirements.txt
-cd streamlit_app && streamlit run app.py
+run_app.bat
 ```
-**Full docs**: [analytics-app/README.md](analytics-app/README.md)
+
+This will:
+1. ✅ Activate virtual environment
+2. ✅ Test database connection
+3. ✅ Launch web app in your browser
+
+**Manual start** (if you prefer):
+```bash
+cd analytics-app
+source venv/Scripts/activate  # Windows Git Bash
+# OR
+venv\Scripts\activate.bat     # Windows CMD
+
+streamlit run app.py
+```
+
+The app will open at `http://localhost:8501`
+
+### Scraper (Data Collection)
+
+The scraper has already collected all 2025 data, but you can:
+
+```bash
+cd scraper
+python check_progress.py      # View scraping progress
+python query_database.py      # Interactive database queries
+```
+
+**Full scraper docs**: [scraper/README.md](scraper/README.md)
 
 ---
 
-## 📂 Structure
+## 📂 Project Structure
 
 ```
 Alberta Purchasing Construction/
-├── scraper/              # Data collection (Complete ✓)
-├── analytics-app/        # Web app (Phase 1 Complete ✓)
-└── alberta_procurement.db  # Shared database
+├── alberta_procurement.db        # Shared database (461 MB)
+│
+├── scraper/                      # Data Collection (Complete ✓)
+│   ├── alberta_scraper_sqlite.py # Main scraper
+│   ├── database_setup.py         # Schema creation
+│   ├── check_progress.py         # Progress monitoring
+│   ├── query_database.py         # Interactive queries
+│   └── SESSION_SUMMARY.md        # Complete scraper guide
+│
+└── analytics-app/                # Web Application (Phase 2 Complete ✓)
+    ├── app.py                    # Main Streamlit app
+    ├── run_app.bat              # Quick-start script
+    ├── pages/
+    │   └── 1_📊_Explorer.py     # Historical Project Explorer
+    ├── utils/
+    │   └── database.py          # Database query utilities
+    ├── venv/                    # Python virtual environment
+    ├── requirements.txt         # Dependencies
+    ├── PHASE1_COMPLETE.md       # Phase 1 documentation
+    └── PHASE2_COMPLETE.md       # Phase 2 documentation
 ```
 
 ---
 
-## 📊 Data (2025 Complete)
+## 🎯 Analytics App Features
 
+### ✅ Phase 1: Project Setup & Git Integration (Complete)
+- GitHub repository with feature branch workflow
+- Database connection utilities (6 specialized query methods)
+- Streamlit app skeleton with navigation
+- Virtual environment setup
+- 100% test coverage on database queries
+
+### ✅ Phase 2: Historical Project Explorer (Complete)
+
+**📊 Explorer Page** - Browse all 831 awarded construction projects:
+
+**Advanced Filtering:**
+- 💵 Value range (min/max dollar amounts)
+- 🌍 Region (city or area)
+- 🔍 Keywords (search titles/descriptions)
+- 📅 Date range (award dates)
+
+**Project Details:**
+- Click any project to view complete bid information
+- See all bids received (not just the winner)
+- Bid statistics: lowest, highest, average, spread %
+- Interactive charts comparing all bids (Plotly)
+- Winner identification (green highlighting)
+
+**Analytics & Visualizations:**
+- Summary metrics (total value, average, median)
+- Value distribution histogram
+- Regional distribution (top 10 regions)
+- Award timeline (monthly trends)
+
+**Export Functionality:**
+- Download filtered results as CSV or JSON
+- Timestamped filenames
+- Preview before export
+
+### 🚧 Coming Next: Phase 3 - ML Bid Prediction
+- Text processing & similarity engine
+- Find comparable historical projects
+- Predict bid amounts using ML regression
+- Confidence intervals & competition analysis
+
+---
+
+## 📊 Data Overview (2025 Complete)
+
+### Overall Statistics
 - **6,607** total opportunities
 - **1,596** construction projects (24.2%)
-- **3,014** awarded contracts
+- **831** awarded construction contracts
+- **172** projects with full bid data (for ML training)
+- **3,014** total awarded contracts (all categories)
 - **137,153** interested supplier records
-- **Success Rate**: 99.93% (5 errors / 7,557 attempts)
+- **99.93%** scraping success rate (5 errors / 7,557 attempts)
+
+### Database Tables
+1. `opportunities` - Main project records
+2. `bids` - Individual bid amounts and suppliers
+3. `interested_suppliers` - Companies that viewed postings
+4. `commodity_codes` - Project classification codes
+5. `documents` - Attachment metadata
+6. `raw_json` - Complete API responses
+7. `scraping_log` - Data collection audit trail
+8. `statuses` - Opportunity status history
+
+---
+
+## 💡 How to Use the Analytics App
+
+### Example Workflow 1: Find Similar Projects
+1. Launch app: `run_app.bat`
+2. Click **📊 Explorer** in sidebar
+3. Set filters:
+   - Min Value: $500,000
+   - Keywords: "road construction"
+   - Region: "Calgary"
+4. Click "Apply Filters"
+5. Browse results, click project for bid details
+
+### Example Workflow 2: Analyze Regional Trends
+1. Navigate to **📊 Explorer**
+2. Click "Load All Projects"
+3. Switch to **Statistics** tab
+4. View regional distribution chart
+5. Analyze timeline trends
+
+### Example Workflow 3: Export Data for Analysis
+1. Filter projects by your criteria
+2. Switch to **Export** tab
+3. Choose CSV or JSON format
+4. Click download
+5. Open in Excel or your preferred tool
 
 ---
 
 ## 🔧 Tech Stack
 
-- Python 3.8+, SQLite, Streamlit
-- pandas, plotly, scikit-learn
-- Git/GitHub
+### Backend
+- **Python 3.8+** - Core language
+- **SQLite** - Database (461 MB, production-ready)
+- **pandas** - Data manipulation
+- **requests** - HTTP scraping
+
+### Frontend (Analytics App)
+- **Streamlit** - Web framework
+- **Plotly** - Interactive visualizations
+- **plotly.express** - Quick charts
+- **altair** - Alternative charting
+
+### ML/Analytics (Phase 3+)
+- **scikit-learn** - Machine learning
+- **numpy** - Numerical computing
+- **python-dateutil** - Date handling
+
+### Development
+- **Git/GitHub** - Version control with feature branch workflow
+- **Virtual Environment** - Isolated dependencies
 
 ---
 
 ## 📖 Documentation
 
-- **[scraper/SESSION_SUMMARY.md](scraper/SESSION_SUMMARY.md)** - Complete scraper guide
-- **[analytics-app/DEVELOPMENT.md](analytics-app/DEVELOPMENT.md)** - App development log
-- **[analytics-app/PHASE1_COMPLETE.md](analytics-app/PHASE1_COMPLETE.md)** - Phase 1 summary
+### Analytics App
+- **[PHASE1_COMPLETE.md](analytics-app/PHASE1_COMPLETE.md)** - Setup & database integration
+- **[PHASE2_COMPLETE.md](analytics-app/PHASE2_COMPLETE.md)** - Historical Project Explorer
+- **[utils/database.py](analytics-app/utils/database.py)** - Database API reference (inline docs)
+
+### Scraper
+- **[scraper/SESSION_SUMMARY.md](scraper/SESSION_SUMMARY.md)** - Complete scraping guide
+- **[scraper/README.md](scraper/README.md)** - Quick reference
 
 ---
 
-## 🎯 Status
+## 🌲 Git Workflow
 
-**Scraper**: ✅ Complete (2025 data)
-**Analytics App**: 🚧 Phase 1 Complete, Phase 2 Starting
+This project uses a **feature branch workflow** - we NEVER push directly to main!
 
-**Last Updated**: December 8, 2025 | **Version**: 1.0.0
+### Current Branches
+- `feature/2025-12-08-phase-1-setup` - Phase 1 work (merged ready)
+- `feature/2025-12-08-phase-2-explorer` - Phase 2 work (current)
+
+### Branch Naming Convention
+```
+feature/YYYY-MM-DD-phase-N-description
+```
+
+### Workflow
+1. Create dated feature branch from main
+2. Develop and test on feature branch
+3. Commit with descriptive messages
+4. Push feature branch to origin
+5. Create Pull Request for review
+6. Merge to main after approval
+
+**Example:**
+```bash
+git checkout -b feature/2025-12-09-phase-3-ml
+# ... make changes ...
+git add -A
+git commit -m "Phase 3: Add similarity engine"
+git push -u origin feature/2025-12-09-phase-3-ml
+```
+
+---
+
+## 🎯 Development Status
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| **Scraper** | ✅ Complete | 2025 data fully scraped (6,607 opportunities) |
+| **Phase 1** | ✅ Complete | Database utilities, app skeleton, Git setup |
+| **Phase 2** | ✅ Complete | Historical Explorer with filtering & analytics |
+| **Phase 3** | 🚧 Planned | Text processing & similarity engine |
+| **Phase 4** | 📋 Planned | ML bid prediction tool |
+| **Phase 5** | 📋 Planned | Advanced analytics dashboard |
+| **Phase 6** | 📋 Planned | Competitor intelligence & polish |
+
+---
+
+## 🤝 Development Roadmap
+
+### ✅ Completed
+- [x] Scrape all 2025 Alberta procurement data
+- [x] Build SQLite database with 8 normalized tables
+- [x] Create Streamlit web application
+- [x] Implement database query utilities
+- [x] Build Historical Project Explorer
+- [x] Add advanced filtering (value, region, keywords, dates)
+- [x] Create bid analytics with visualizations
+- [x] Add CSV/JSON export functionality
+
+### 🚧 In Progress
+- [ ] Text processing for project descriptions
+- [ ] Keyword extraction & project classification
+- [ ] Similarity scoring algorithm
+
+### 📋 Upcoming
+- [ ] ML regression model for bid prediction
+- [ ] Confidence interval calculations
+- [ ] Competition heatmaps
+- [ ] Regional analysis maps
+- [ ] Competitor tracking page
+- [ ] Production deployment
+
+---
+
+## 🐛 Known Issues
+
+1. **Empty `streamlit_app/` folder** in analytics-app/ (locked by Windows, harmless)
+2. **Excel export** not yet implemented (use CSV for now)
+3. **Large result sets** may be slow (pagination coming in Phase 5)
+
+---
+
+## 📞 Support & Feedback
+
+- **Issues**: Report bugs via GitHub Issues
+- **Documentation**: See individual phase completion docs
+- **Questions**: Check inline code documentation
+
+---
+
+## 📝 License
+
+Private repository - All rights reserved
+
+---
+
+**Last Updated**: December 8, 2025 | **Version**: 2.0.0 (Phase 2 Complete)
+
+**Repository**: https://github.com/phenom11218/bcxv-construction
+
+---
+
+## 🚀 Getting Started Checklist
+
+- [ ] Clone repository
+- [ ] Navigate to `analytics-app/`
+- [ ] Run `run_app.bat`
+- [ ] Click **📊 Explorer** in sidebar
+- [ ] Start exploring 831 construction projects!
+
+**That's it!** The database is already populated with 2025 data. Just launch and explore! 🎉
