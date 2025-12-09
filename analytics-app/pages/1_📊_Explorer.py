@@ -219,13 +219,13 @@ with tab1:
         if 'awarded_on' in display_df.columns:
             display_df['awarded_on'] = pd.to_datetime(display_df['awarded_on'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-        # Create clickable links for reference numbers
-        display_df['🔗 Link'] = display_df['reference_number'].apply(
+        # Convert reference_number column to clickable links
+        display_df['reference_number'] = display_df['reference_number'].apply(
             lambda x: f"https://purchasing.alberta.ca/posting/{x}"
         )
 
         # Select columns to display
-        display_columns = ['🔗 Link', 'reference_number', 'short_title', 'actual_value', 'awarded_on', 'region']
+        display_columns = ['reference_number', 'short_title', 'actual_value', 'awarded_on', 'region']
         available_columns = [col for col in display_columns if col in display_df.columns]
 
         # Display interactive table with clickable links and row selection
@@ -234,13 +234,12 @@ with tab1:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "🔗 Link": st.column_config.LinkColumn(
-                    "🔗 Link",
+                "reference_number": st.column_config.LinkColumn(
+                    "Reference",
                     width="small",
-                    help="Click to view original posting on Alberta Purchasing",
+                    help="Click reference to view original posting on Alberta Purchasing",
                     max_chars=100
                 ),
-                "reference_number": st.column_config.TextColumn("Reference", width="small"),
                 "short_title": st.column_config.TextColumn("Project Title", width="large"),
                 "actual_value": st.column_config.TextColumn("Award Value", width="medium"),
                 "awarded_on": st.column_config.TextColumn("Award Date", width="medium"),
