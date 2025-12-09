@@ -301,13 +301,17 @@ with tab1:
         if 'awarded_on' in display_df.columns:
             display_df['awarded_on'] = pd.to_datetime(display_df['awarded_on'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-        # Keep reference_number as-is for lookups, create URL column for linking
-        display_df['ref_link'] = display_df['reference_number'].apply(
+        # Create clickable reference column with URL
+        # Note: LinkColumn shows the URL, but we keep reference_number separate for lookups
+        display_df['🔗 Ref'] = display_df['reference_number'].apply(
             lambda x: f"https://purchasing.alberta.ca/posting/{x}"
         )
 
-        # Select columns to display
-        display_columns = ['reference_number', 'short_title', 'actual_value', 'awarded_on', 'region']
+        # Keep original reference for display as text
+        display_df['Reference'] = display_df['reference_number']
+
+        # Select columns to display (show both reference and clickable link)
+        display_columns = ['Reference', '🔗 Ref', 'short_title', 'actual_value', 'awarded_on', 'region']
         available_columns = [col for col in display_columns if col in display_df.columns]
 
         # Display interactive table with clickable links and row selection
@@ -316,10 +320,16 @@ with tab1:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "reference_number": st.column_config.TextColumn(
-                    "Reference",
+                "Reference": st.column_config.TextColumn(
+                    "Ref #",
                     width="small",
                     help="Project reference number"
+                ),
+                "🔗 Ref": st.column_config.LinkColumn(
+                    "Link",
+                    width="small",
+                    help="Click to view original posting",
+                    display_text="View"
                 ),
                 "short_title": st.column_config.TextColumn("Project Title", width="large"),
                 "actual_value": st.column_config.TextColumn("Award Value", width="medium"),
