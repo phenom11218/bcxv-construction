@@ -38,12 +38,19 @@ This unified repository contains both the **data scraper** and the **analytics a
 
 The easiest way to explore the data:
 
+**For Git Bash (recommended):**
 ```bash
+cd analytics-app
+./run_app.sh
+```
+
+**For Windows CMD:**
+```cmd
 cd analytics-app
 run_app.bat
 ```
 
-This will:
+Both scripts will:
 1. ✅ Activate virtual environment
 2. ✅ Test database connection
 3. ✅ Launch web app in your browser
@@ -51,7 +58,7 @@ This will:
 **Manual start** (if you prefer):
 ```bash
 cd analytics-app
-source venv/Scripts/activate  # Windows Git Bash
+source venv/Scripts/activate  # Git Bash
 # OR
 venv\Scripts\activate.bat     # Windows CMD
 
@@ -89,7 +96,8 @@ Alberta Purchasing Construction/
 │
 └── analytics-app/                # Web Application (Phase 2 Complete ✓)
     ├── app.py                    # Main Streamlit app
-    ├── run_app.bat              # Quick-start script
+    ├── run_app.sh               # Quick-start script (Git Bash)
+    ├── run_app.bat              # Quick-start script (Windows CMD)
     ├── pages/
     │   └── 1_📊_Explorer.py     # Historical Project Explorer
     ├── utils/
@@ -341,7 +349,7 @@ Private repository - All rights reserved
 
 - [ ] Clone repository
 - [ ] Navigate to `analytics-app/`
-- [ ] Run `run_app.bat`
+- [ ] Run `./run_app.sh` (Git Bash) or `run_app.bat` (Windows CMD)
 - [ ] Click **📊 Explorer** in sidebar
 - [ ] Start exploring 831 construction projects!
 
