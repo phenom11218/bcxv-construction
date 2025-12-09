@@ -154,7 +154,11 @@ class ConstructionProjectQueries:
         min_value: Optional[float] = None,
         max_value: Optional[float] = None,
         region: Optional[str] = None,
-        keywords: Optional[str] = None
+        keywords: Optional[str] = None,
+        supplier: Optional[str] = None,
+        min_bidders: Optional[int] = None,
+        max_bidders: Optional[int] = None,
+        size_bucket: Optional[str] = None
     ) -> pd.DataFrame:
         """
         Get awarded construction projects with optional filters.
@@ -165,52 +169,86 @@ class ConstructionProjectQueries:
             max_value: Maximum award amount
             region: Filter by region (partial match)
             keywords: Search keywords in title and description (partial match)
+            supplier: Filter projects where this company submitted a bid
+            min_bidders: Minimum number of bidders (competition level)
+            max_bidders: Maximum number of bidders
+            size_bucket: Project size category (Small, Medium, Large, XL)
 
         Returns:
-            pd.DataFrame with columns: reference_number, short_title, description,
-            actual_value, num_bidders, region, post_date, close_date, awarded_on,
-            delivery_start_date, delivery_end_date
+            pd.DataFrame with project details
         """
+        # Handle size buckets
+        if size_bucket:
+            if size_bucket == "Small (<$500K)":
+                max_value = 500000
+            elif size_bucket == "Medium ($500K-$2M)":
+                min_value = 500000
+                max_value = 2000000
+            elif size_bucket == "Large ($2M-$10M)":
+                min_value = 2000000
+                max_value = 10000000
+            elif size_bucket == "XL (>$10M)":
+                min_value = 10000000
+                max_value = None
+
         query = """
             SELECT
-                reference_number,
-                short_title,
-                description,
-                actual_value,
-                num_bidders,
-                region,
-                post_date,
-                close_date,
-                awarded_on,
-                delivery_start_date,
-                delivery_end_date,
-                solicitation_type
-            FROM opportunities
-            WHERE category_code = 'CNST'
-              AND status_code = 'AWARD'
+                o.reference_number,
+                o.short_title,
+                o.description,
+                o.actual_value,
+                o.num_bidders,
+                o.region,
+                o.post_date,
+                o.close_date,
+                o.awarded_on,
+                o.delivery_start_date,
+                o.delivery_end_date,
+                o.solicitation_type
+            FROM opportunities o
+            WHERE o.category_code = 'CNST'
+              AND o.status_code = 'AWARD'
         """
 
         params = []
 
+        # Supplier filter (join with bidders table)
+        if supplier is not None:
+            query = query.replace(
+                "FROM opportunities o",
+                """FROM opportunities o
+                INNER JOIN bidders b ON o.reference_number = b.opportunity_ref"""
+            )
+            query += " AND b.company_name = ?"
+            params.append(supplier)
+
         if min_value is not None:
-            query += " AND actual_value >= ?"
+            query += " AND o.actual_value >= ?"
             params.append(min_value)
 
         if max_value is not None:
-            query += " AND actual_value <= ?"
+            query += " AND o.actual_value <= ?"
             params.append(max_value)
 
         if region is not None:
-            query += " AND region LIKE ?"
+            query += " AND o.region LIKE ?"
             params.append(f"%{region}%")
 
         if keywords is not None:
-            query += " AND (short_title LIKE ? OR description LIKE ?)"
+            query += " AND (o.short_title LIKE ? OR o.description LIKE ?)"
             keyword_pattern = f"%{keywords}%"
             params.append(keyword_pattern)
             params.append(keyword_pattern)
 
-        query += " ORDER BY awarded_on DESC"
+        if min_bidders is not None:
+            query += " AND o.num_bidders >= ?"
+            params.append(min_bidders)
+
+        if max_bidders is not None:
+            query += " AND o.num_bidders <= ?"
+            params.append(max_bidders)
+
+        query += " ORDER BY o.awarded_on DESC"
 
         if limit is not None:
             query += f" LIMIT {limit}"
@@ -444,6 +482,112 @@ class ConstructionProjectQueries:
         common_keywords.sort()  # Sort alphabetically
 
         return common_keywords
+
+    def get_all_suppliers(self) -> List[str]:
+        """
+        Get all unique supplier/company names that have submitted bids.
+
+        Returns:
+            List of unique supplier names, sorted alphabetically
+        """
+        query = """
+            SELECT DISTINCT company_name
+            FROM bidders
+            WHERE company_name IS NOT NULL
+              AND company_name != ''
+            ORDER BY company_name
+        """
+        result = self.db.execute_query(query)
+        return result['company_name'].tolist() if not result.empty else []
+
+    def get_supplier_stats(self, company_name: str) -> Dict[str, Any]:
+        """
+        Get comprehensive statistics for a specific supplier.
+
+        Args:
+            company_name: Name of the supplier/company
+
+        Returns:
+            Dict with bid statistics, win rate, typical bid behavior
+        """
+        # Get all bids by this supplier
+        bids_query = """
+            SELECT
+                b.bid_amount,
+                b.is_winner,
+                b.opportunity_ref,
+                o.actual_value,
+                o.awarded_on,
+                o.region,
+                o.short_title
+            FROM bidders b
+            JOIN opportunities o ON b.opportunity_ref = o.reference_number
+            WHERE b.company_name = ?
+              AND o.category_code = 'CNST'
+            ORDER BY o.awarded_on DESC
+        """
+        bids = self.db.execute_query(bids_query, (company_name,))
+
+        stats = {
+            'total_bids': len(bids),
+            'wins': 0,
+            'losses': 0,
+            'win_rate': 0.0,
+            'total_won_value': 0.0,
+            'avg_bid_amount': 0.0,
+            'regions': [],
+            'recent_projects': []
+        }
+
+        if bids.empty:
+            return stats
+
+        # Calculate statistics
+        stats['wins'] = bids['is_winner'].sum()
+        stats['losses'] = len(bids) - stats['wins']
+        stats['win_rate'] = (stats['wins'] / len(bids) * 100) if len(bids) > 0 else 0.0
+
+        # Total value won
+        won_bids = bids[bids['is_winner'] == True]
+        if not won_bids.empty:
+            stats['total_won_value'] = won_bids['actual_value'].sum()
+
+        # Average bid amount
+        if 'bid_amount' in bids.columns:
+            stats['avg_bid_amount'] = bids['bid_amount'].mean()
+
+        # Active regions
+        if 'region' in bids.columns:
+            region_counts = bids['region'].value_counts()
+            stats['regions'] = region_counts.head(5).to_dict()
+
+        # Recent projects (last 5)
+        stats['recent_projects'] = bids.head(5).to_dict('records')
+
+        return stats
+
+    def get_interested_suppliers(self, reference_number: str) -> pd.DataFrame:
+        """
+        Get all companies that viewed a project (interested) but may not have bid.
+
+        Args:
+            reference_number: Project reference number
+
+        Returns:
+            DataFrame with interested supplier information
+        """
+        query = """
+            SELECT
+                business_name,
+                city,
+                province,
+                country,
+                description
+            FROM interested_suppliers
+            WHERE opportunity_ref = ?
+            ORDER BY business_name
+        """
+        return self.db.execute_query(query, (reference_number,))
 
 
 # Example usage and testing
