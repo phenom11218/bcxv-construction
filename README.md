@@ -39,12 +39,29 @@ BCXV Construction is a Streamlit-based analytics platform that helps constructio
    cd bcxv-construction
    ```
 
-2. **Install dependencies:**
+2. **Create a virtual environment (recommended):**
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Activate the virtual environment:**
+
+   **Windows:**
+   ```bash
+   venv\Scripts\activate
+   ```
+
+   **Mac/Linux:**
+   ```bash
+   source venv/bin/activate
+   ```
+
+4. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Verify database location:**
+5. **Verify database location:**
    The app expects the database at:
    ```
    ../scraper/Alberta Purchasing Construction/alberta_procurement.db
@@ -52,13 +69,26 @@ BCXV Construction is a Streamlit-based analytics platform that helps constructio
 
    If your database is elsewhere, you can modify the path in `streamlit_app/utils/database.py`
 
-4. **Run the app:**
+6. **Test database connection:**
+   ```bash
+   cd streamlit_app/utils
+   python database.py
+   ```
+
+   You should see:
+   ```
+   [OK] Connected to database
+   [OK] Database Statistics
+   ALL TESTS PASSED [SUCCESS]
+   ```
+
+7. **Run the app:**
    ```bash
    cd streamlit_app
    streamlit run app.py
    ```
 
-5. **Open your browser:**
+8. **Open your browser:**
    Navigate to `http://localhost:8501`
 
 ---
