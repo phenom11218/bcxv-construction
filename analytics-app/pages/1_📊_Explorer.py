@@ -131,11 +131,11 @@ with tab1:
             )
 
             # Apply date filter
-            if not df.empty and 'award_date' in df.columns:
-                df['award_date'] = pd.to_datetime(df['award_date'], errors='coerce')
+            if not df.empty and 'awarded_on' in df.columns:
+                df['awarded_on'] = pd.to_datetime(df['awarded_on'], errors='coerce')
                 df = df[
-                    (df['award_date'] >= pd.Timestamp(start_date)) &
-                    (df['award_date'] <= pd.Timestamp(end_date))
+                    (df['awarded_on'] >= pd.Timestamp(start_date)) &
+                    (df['awarded_on'] <= pd.Timestamp(end_date))
                 ]
 
             st.session_state.projects_df = df
@@ -148,15 +148,15 @@ with tab1:
 
         # Format currency columns
         display_df = df.copy()
-        if 'award_value' in display_df.columns:
-            display_df['award_value'] = display_df['award_value'].apply(
+        if 'actual_value' in display_df.columns:
+            display_df['actual_value'] = display_df['actual_value'].apply(
                 lambda x: f"${x:,.2f}" if pd.notna(x) else "N/A"
             )
-        if 'award_date' in display_df.columns:
-            display_df['award_date'] = pd.to_datetime(display_df['award_date'], errors='coerce').dt.strftime('%Y-%m-%d')
+        if 'awarded_on' in display_df.columns:
+            display_df['awarded_on'] = pd.to_datetime(display_df['awarded_on'], errors='coerce').dt.strftime('%Y-%m-%d')
 
         # Select columns to display
-        display_columns = ['opportunity_id', 'title', 'award_value', 'award_date', 'region']
+        display_columns = ['reference_number', 'short_title', 'actual_value', 'awarded_on', 'region']
         available_columns = [col for col in display_columns if col in display_df.columns]
 
         # Display with clickable rows
@@ -165,10 +165,10 @@ with tab1:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "opportunity_id": st.column_config.NumberColumn("ID", width="small"),
-                "title": st.column_config.TextColumn("Project Title", width="large"),
-                "award_value": st.column_config.TextColumn("Award Value", width="medium"),
-                "award_date": st.column_config.TextColumn("Award Date", width="medium"),
+                "reference_number": st.column_config.TextColumn("Reference", width="small"),
+                "short_title": st.column_config.TextColumn("Project Title", width="large"),
+                "actual_value": st.column_config.TextColumn("Award Value", width="medium"),
+                "awarded_on": st.column_config.TextColumn("Award Date", width="medium"),
                 "region": st.column_config.TextColumn("Region", width="medium")
             }
         )
@@ -178,19 +178,19 @@ with tab1:
         st.subheader("🔍 View Project Details")
 
         # Select a project to view details
-        project_ids = df['opportunity_id'].tolist()
-        selected_id = st.selectbox(
+        project_refs = df['reference_number'].tolist()
+        selected_ref = st.selectbox(
             "Select a project to view details:",
-            options=project_ids,
-            format_func=lambda x: f"#{x} - {df[df['opportunity_id']==x]['title'].values[0][:60]}..."
+            options=project_refs,
+            format_func=lambda x: f"{x} - {df[df['reference_number']==x]['short_title'].values[0][:60]}..."
         )
 
-        if selected_id:
+        if selected_ref:
             # Get full project details with bids
-            project_details = queries.get_project_with_bids(selected_id)
+            project_details = queries.get_project_with_bids(selected_ref)
 
             if project_details:
-                st.markdown(f"### 📄 Project #{selected_id}")
+                st.markdown(f"### 📄 Project {selected_ref}")
 
                 # Project info
                 col1, col2, col3 = st.columns(3)
@@ -267,24 +267,24 @@ with tab2:
         with col1:
             st.metric("Total Projects", len(df))
         with col2:
-            total_value = df['award_value'].sum() if 'award_value' in df.columns else 0
+            total_value = df['actual_value'].sum() if 'actual_value' in df.columns else 0
             st.metric("Total Value", f"${total_value:,.0f}")
         with col3:
-            avg_value = df['award_value'].mean() if 'award_value' in df.columns else 0
+            avg_value = df['actual_value'].mean() if 'actual_value' in df.columns else 0
             st.metric("Average Value", f"${avg_value:,.0f}")
         with col4:
-            median_value = df['award_value'].median() if 'award_value' in df.columns else 0
+            median_value = df['actual_value'].median() if 'actual_value' in df.columns else 0
             st.metric("Median Value", f"${median_value:,.0f}")
 
         # Value distribution
-        if 'award_value' in df.columns and not df['award_value'].isna().all():
+        if 'actual_value' in df.columns and not df['actual_value'].isna().all():
             st.markdown("#### 💵 Value Distribution")
             fig = px.histogram(
                 df,
-                x='award_value',
+                x='actual_value',
                 nbins=30,
                 title="Distribution of Award Values",
-                labels={'award_value': 'Award Value ($)'}
+                labels={'actual_value': 'Award Value ($)'}
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -301,12 +301,12 @@ with tab2:
             st.plotly_chart(fig, use_container_width=True)
 
         # Timeline
-        if 'award_date' in df.columns:
+        if 'awarded_on' in df.columns:
             st.markdown("#### 📅 Award Timeline")
             df_timeline = df.copy()
-            df_timeline['award_date'] = pd.to_datetime(df_timeline['award_date'], errors='coerce')
-            df_timeline = df_timeline.dropna(subset=['award_date'])
-            df_timeline['month'] = df_timeline['award_date'].dt.to_period('M').astype(str)
+            df_timeline['awarded_on'] = pd.to_datetime(df_timeline['awarded_on'], errors='coerce')
+            df_timeline = df_timeline.dropna(subset=['awarded_on'])
+            df_timeline['month'] = df_timeline['awarded_on'].dt.to_period('M').astype(str)
             monthly_counts = df_timeline.groupby('month').size().reset_index(name='count')
 
             fig = px.line(

@@ -151,7 +151,8 @@ class ConstructionProjectQueries:
         limit: Optional[int] = None,
         min_value: Optional[float] = None,
         max_value: Optional[float] = None,
-        region: Optional[str] = None
+        region: Optional[str] = None,
+        keywords: Optional[str] = None
     ) -> pd.DataFrame:
         """
         Get awarded construction projects with optional filters.
@@ -161,6 +162,7 @@ class ConstructionProjectQueries:
             min_value: Minimum award amount
             max_value: Maximum award amount
             region: Filter by region (partial match)
+            keywords: Search keywords in title and description (partial match)
 
         Returns:
             pd.DataFrame with columns: reference_number, short_title, description,
@@ -199,6 +201,12 @@ class ConstructionProjectQueries:
         if region is not None:
             query += " AND region LIKE ?"
             params.append(f"%{region}%")
+
+        if keywords is not None:
+            query += " AND (short_title LIKE ? OR description LIKE ?)"
+            keyword_pattern = f"%{keywords}%"
+            params.append(keyword_pattern)
+            params.append(keyword_pattern)
 
         query += " ORDER BY awarded_on DESC"
 
