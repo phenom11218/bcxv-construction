@@ -35,8 +35,8 @@ class DatabaseConnection:
         """
         if db_path is None:
             # Default: look for database in project root
-            # From analytics-app/streamlit_app/utils/ -> ../../../alberta_procurement.db
-            default_path = Path(__file__).parent.parent.parent.parent / "alberta_procurement.db"
+            # From analytics-app/utils/ -> ../../alberta_procurement.db
+            default_path = Path(__file__).parent.parent.parent / "alberta_procurement.db"
             self.db_path = str(default_path)
         else:
             self.db_path = db_path
