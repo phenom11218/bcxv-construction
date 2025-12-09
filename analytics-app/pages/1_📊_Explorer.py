@@ -301,7 +301,8 @@ with tab1:
         if 'awarded_on' in display_df.columns:
             display_df['awarded_on'] = pd.to_datetime(display_df['awarded_on'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-        # Make reference column clickable by converting to URL
+        # Convert reference to URL for LinkColumn
+        # Use display_text regex to extract and show only the reference number part
         display_df['reference_number'] = display_df['reference_number'].apply(
             lambda x: f"https://purchasing.alberta.ca/posting/{x}"
         )
@@ -319,7 +320,8 @@ with tab1:
                 "reference_number": st.column_config.LinkColumn(
                     "Reference",
                     width="medium",
-                    help="Click to view original posting on Alberta Purchasing"
+                    help="Click to view original posting on Alberta Purchasing",
+                    display_text=r"https://purchasing\.alberta\.ca/posting/(AB-\d{4}-\d{5})"
                 ),
                 "short_title": st.column_config.TextColumn("Project Title", width="large"),
                 "actual_value": st.column_config.TextColumn("Award Value", width="medium"),
