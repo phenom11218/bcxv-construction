@@ -268,7 +268,7 @@ with tab1:
             # Get full project details with bids
             project_details = queries.get_project_with_bids(selected_ref)
 
-            if project_details:
+            if project_details is not None and len(project_details) > 0:
                 st.markdown(f"### 📄 Project {selected_ref}")
 
                 # Project info
