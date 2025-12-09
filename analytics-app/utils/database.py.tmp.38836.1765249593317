@@ -398,15 +398,15 @@ class ConstructionProjectQueries:
         result = self.db.execute_query(query)
         return result['region'].tolist() if not result.empty else []
 
-    def get_common_keywords(self, limit: int = 100) -> List[str]:
+    def get_common_keywords(self, limit: int = 50) -> List[str]:
         """
         Extract common keywords from construction project titles.
 
         Args:
-            limit: Maximum number of keywords to extract before sorting
+            limit: Maximum number of keywords to return
 
         Returns:
-            List of common keywords, sorted alphabetically
+            List of common keywords found in project titles
         """
         query = """
             SELECT short_title
@@ -419,6 +419,10 @@ class ConstructionProjectQueries:
 
         if result.empty:
             return []
+
+        # Extract keywords from titles
+        import re
+        from collections import Counter
 
         # Common stop words to exclude
         stop_words = {
@@ -439,9 +443,7 @@ class ConstructionProjectQueries:
 
         # Count occurrences and get most common
         word_counts = Counter(all_words)
-        # Get top keywords by frequency, then sort alphabetically
         common_keywords = [word for word, count in word_counts.most_common(limit)]
-        common_keywords.sort()  # Sort alphabetically
 
         return common_keywords
 

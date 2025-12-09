@@ -52,7 +52,7 @@ queries = get_queries(db)
 def load_suggestions(_queries):
     """Load region and keyword suggestions from database"""
     regions = _queries.get_unique_regions()
-    keywords = _queries.get_common_keywords(limit=50)
+    keywords = _queries.get_common_keywords(limit=100)  # Get top 100, sorted alphabetically
     return regions, keywords
 
 regions_list, keywords_list = load_suggestions(queries)
