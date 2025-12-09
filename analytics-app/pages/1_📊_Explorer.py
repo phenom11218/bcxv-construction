@@ -50,12 +50,13 @@ queries = get_queries(db)
 # Load suggestions (cached)
 @st.cache_data
 def load_suggestions(_queries):
-    """Load region and keyword suggestions from database"""
+    """Load region, keyword, and supplier suggestions from database"""
     regions = _queries.get_unique_regions()
     keywords = _queries.get_common_keywords(limit=100)  # Get top 100, sorted alphabetically
-    return regions, keywords
+    suppliers = _queries.get_all_suppliers()
+    return regions, keywords, suppliers
 
-regions_list, keywords_list = load_suggestions(queries)
+regions_list, keywords_list, suppliers_list = load_suggestions(queries)
 
 # Title
 st.title("📊 Historical Project Explorer")
@@ -67,11 +68,15 @@ with st.expander("💡 Quick Tips - Click to expand", expanded=False):
     **Available Data:**
     - **{len(regions_list)} regions/cities** across Alberta
     - **{len(keywords_list)} common keywords** extracted from project titles
+    - **{len(suppliers_list)} suppliers/companies** that have submitted bids
     - **831 awarded construction projects** from 2025
 
     **Search Tips:**
     - Use **Region dropdown** to see all available cities
     - Use **Keyword suggestions** to discover common project types
+    - Use **Supplier filter** to track competitor bidding behavior
+    - Use **Competition level** to find less competitive projects
+    - Use **Size buckets** for quick project size filtering
     - Combine multiple filters for precise results
 
     **Common Keywords Include:**
@@ -167,6 +172,79 @@ with date_col2:
         help="Award date to"
     )
 
+# Supplier/Company filter
+st.sidebar.subheader("Supplier / Company")
+supplier_mode = st.sidebar.radio(
+    "Select mode:",
+    options=["All suppliers", "Specific supplier"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="supplier_mode"
+)
+
+if supplier_mode == "Specific supplier":
+    supplier_filter = st.sidebar.selectbox(
+        "Select supplier:",
+        options=[""] + suppliers_list,
+        help=f"Filter projects where this company bid ({len(suppliers_list)} suppliers)"
+    )
+    if not supplier_filter:
+        supplier_filter = None
+else:
+    supplier_filter = None
+
+# Competition Level filter
+st.sidebar.subheader("Competition Level")
+competition_filter = st.sidebar.select_slider(
+    "Number of bidders:",
+    options=["All", "Low (1-3)", "Medium (4-6)", "High (7+)"],
+    value="All",
+    help="Filter by number of competing bids"
+)
+
+# Convert to min/max bidders
+min_bidders, max_bidders = None, None
+if competition_filter == "Low (1-3)":
+    min_bidders, max_bidders = 1, 3
+elif competition_filter == "Medium (4-6)":
+    min_bidders, max_bidders = 4, 6
+elif competition_filter == "High (7+)":
+    min_bidders = 7
+
+# Project Size Buckets
+st.sidebar.subheader("Project Size")
+size_bucket = st.sidebar.select_slider(
+    "Quick size filter:",
+    options=["All", "Small (<$500K)", "Medium ($500K-$2M)", "Large ($2M-$10M)", "XL (>$10M)"],
+    value="All",
+    help="Pre-defined project size categories"
+)
+
+size_bucket_filter = None if size_bucket == "All" else size_bucket
+
+# Show supplier stats if supplier is selected
+if supplier_filter:
+    supplier_stats = queries.get_supplier_stats(supplier_filter)
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader(f"📊 {supplier_filter[:30]}{'...' if len(supplier_filter) > 30 else ''}")
+
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        st.metric("Total Bids", supplier_stats['total_bids'])
+        st.metric("Wins", supplier_stats['wins'])
+    with col2:
+        st.metric("Win Rate", f"{supplier_stats['win_rate']:.1f}%")
+        st.metric("Losses", supplier_stats['losses'])
+
+    if supplier_stats['total_won_value'] > 0:
+        st.sidebar.metric("Total Won Value", f"${supplier_stats['total_won_value']:,.0f}")
+
+    if supplier_stats['regions']:
+        st.sidebar.caption("**Top Regions:**")
+        for region, count in list(supplier_stats['regions'].items())[:3]:
+            st.sidebar.caption(f"• {region}: {count} projects")
+
 # Fetch data button
 if st.sidebar.button("🔎 Apply Filters", type="primary"):
     st.session_state.fetch_data = True
@@ -188,7 +266,11 @@ with tab1:
                 min_value=min_value if min_value > 0 else None,
                 max_value=max_value if max_value < 10000000 else None,
                 region=region_filter if region_filter else None,
-                keywords=keyword_filter if keyword_filter else None
+                keywords=keyword_filter if keyword_filter else None,
+                supplier=supplier_filter,
+                min_bidders=min_bidders,
+                max_bidders=max_bidders,
+                size_bucket=size_bucket_filter
             )
 
             # Apply date filter
@@ -219,8 +301,8 @@ with tab1:
         if 'awarded_on' in display_df.columns:
             display_df['awarded_on'] = pd.to_datetime(display_df['awarded_on'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-        # Convert reference_number column to clickable links
-        display_df['reference_number'] = display_df['reference_number'].apply(
+        # Keep reference_number as-is for lookups, create URL column for linking
+        display_df['ref_link'] = display_df['reference_number'].apply(
             lambda x: f"https://purchasing.alberta.ca/posting/{x}"
         )
 
@@ -234,11 +316,10 @@ with tab1:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "reference_number": st.column_config.LinkColumn(
+                "reference_number": st.column_config.TextColumn(
                     "Reference",
                     width="small",
-                    help="Click reference to view original posting on Alberta Purchasing",
-                    max_chars=100
+                    help="Project reference number"
                 ),
                 "short_title": st.column_config.TextColumn("Project Title", width="large"),
                 "actual_value": st.column_config.TextColumn("Award Value", width="medium"),
@@ -369,6 +450,39 @@ with tab1:
                             st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning("No bid data available for this project")
+
+                # Interested suppliers section (companies that viewed but may not have bid)
+                st.markdown("---")
+                st.markdown("#### 👀 Interested Suppliers")
+                st.caption("Companies that viewed this opportunity (may include bidders)")
+
+                interested_df = queries.get_interested_suppliers(selected_ref)
+
+                if not interested_df.empty:
+                    st.info(f"**{len(interested_df)}** companies viewed this opportunity")
+
+                    # Show top interested suppliers
+                    display_interested = interested_df.copy()
+
+                    # Select columns to show
+                    interest_cols = ['business_name', 'city', 'province', 'description']
+                    available_interest_cols = [col for col in interest_cols if col in display_interested.columns]
+
+                    # Show expandable section with all interested suppliers
+                    with st.expander(f"View all {len(interested_df)} interested suppliers", expanded=False):
+                        st.dataframe(
+                            display_interested[available_interest_cols],
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "business_name": "Company",
+                                "city": "City",
+                                "province": "Province",
+                                "description": "Business Type"
+                            }
+                        )
+                else:
+                    st.info("No interested supplier data available for this project")
 
     elif st.session_state.fetch_data:
         st.warning("No projects found matching your filters. Try adjusting the criteria.")
