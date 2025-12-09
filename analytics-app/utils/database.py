@@ -377,6 +377,74 @@ class ConstructionProjectQueries:
 
         return self.db.execute_query(query, tuple(params))
 
+    def get_unique_regions(self) -> List[str]:
+        """
+        Get all unique regions/cities from awarded construction projects.
+
+        Returns:
+            List of unique region names, sorted alphabetically
+        """
+        query = """
+            SELECT DISTINCT region
+            FROM opportunities
+            WHERE category_code = 'CNST'
+              AND status_code = 'AWARD'
+              AND region IS NOT NULL
+              AND region != ''
+            ORDER BY region
+        """
+        result = self.db.execute_query(query)
+        return result['region'].tolist() if not result.empty else []
+
+    def get_common_keywords(self, limit: int = 50) -> List[str]:
+        """
+        Extract common keywords from construction project titles.
+
+        Args:
+            limit: Maximum number of keywords to return
+
+        Returns:
+            List of common keywords found in project titles
+        """
+        query = """
+            SELECT short_title
+            FROM opportunities
+            WHERE category_code = 'CNST'
+              AND status_code = 'AWARD'
+              AND short_title IS NOT NULL
+        """
+        result = self.db.execute_query(query)
+
+        if result.empty:
+            return []
+
+        # Extract keywords from titles
+        import re
+        from collections import Counter
+
+        # Common stop words to exclude
+        stop_words = {
+            'the', 'and', 'for', 'of', 'in', 'to', 'a', 'an', 'is', 'at', 'by',
+            'on', 'with', 'from', 'as', 'or', 'be', 'are', 'was', 'were', 'will',
+            'project', 'projects', 'work', 'works', 'construction', 'phase',
+            '2025', '2024', '2023', 'rfq', 'rfp', 'tender'
+        }
+
+        all_words = []
+        for title in result['short_title']:
+            if pd.notna(title):
+                # Extract words (alphanumeric, keeping hyphens)
+                words = re.findall(r'\b[a-zA-Z][\w-]*\b', str(title).lower())
+                # Filter out stop words and very short words
+                words = [w for w in words if len(w) > 3 and w not in stop_words]
+                all_words.extend(words)
+
+        # Count occurrences and get most common
+        word_counts = Counter(all_words)
+        common_keywords = [word for word, count in word_counts.most_common(limit)]
+
+        return common_keywords
+
 
 # Example usage and testing
 if __name__ == "__main__":

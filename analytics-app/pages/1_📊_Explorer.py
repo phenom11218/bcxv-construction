@@ -47,9 +47,39 @@ def get_queries(_db):
 db = get_database()
 queries = get_queries(db)
 
+# Load suggestions (cached)
+@st.cache_data
+def load_suggestions(_queries):
+    """Load region and keyword suggestions from database"""
+    regions = _queries.get_unique_regions()
+    keywords = _queries.get_common_keywords(limit=50)
+    return regions, keywords
+
+regions_list, keywords_list = load_suggestions(queries)
+
 # Title
 st.title("📊 Historical Project Explorer")
 st.markdown("Browse and analyze awarded construction projects from Alberta's procurement database.")
+
+# Show helpful info
+with st.expander("💡 Quick Tips - Click to expand", expanded=False):
+    st.markdown(f"""
+    **Available Data:**
+    - **{len(regions_list)} regions/cities** across Alberta
+    - **{len(keywords_list)} common keywords** extracted from project titles
+    - **831 awarded construction projects** from 2025
+
+    **Search Tips:**
+    - Use **Region dropdown** to see all available cities
+    - Use **Keyword suggestions** to discover common project types
+    - Combine multiple filters for precise results
+
+    **Common Keywords Include:**
+    `{', '.join(keywords_list[:15])}`...
+
+    **Top Regions:**
+    `{', '.join(regions_list[:10])}`...
+    """)
 
 # Sidebar filters
 st.sidebar.header("🔍 Filters")
@@ -74,21 +104,52 @@ with col2:
         format="%d"
     )
 
-# Region filter
-st.sidebar.subheader("Region")
-region_filter = st.sidebar.text_input(
-    "Region (e.g., Calgary, Edmonton)",
-    value="",
-    help="Filter by city or region name"
+# Region filter with dropdown + free text
+st.sidebar.subheader("Region / City")
+region_mode = st.sidebar.radio(
+    "Select mode:",
+    options=["Choose from list", "Type custom"],
+    horizontal=True,
+    label_visibility="collapsed"
 )
 
-# Keyword filter
+if region_mode == "Choose from list":
+    region_filter = st.sidebar.selectbox(
+        "Select region:",
+        options=[""] + regions_list,
+        help=f"{len(regions_list)} regions available"
+    )
+else:
+    region_filter = st.sidebar.text_input(
+        "Enter region:",
+        value="",
+        placeholder="e.g., Calgary, Edmonton, Red Deer",
+        help="Filter by city or region name"
+    )
+
+# Keyword filter with suggestions + free text
 st.sidebar.subheader("Keywords")
-keyword_filter = st.sidebar.text_input(
-    "Search title/description",
-    value="",
-    help="Search for projects containing specific keywords"
+keyword_mode = st.sidebar.radio(
+    "Select mode:",
+    options=["Choose from common", "Type custom"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="keyword_mode"
 )
+
+if keyword_mode == "Choose from common":
+    keyword_filter = st.sidebar.selectbox(
+        "Select keyword:",
+        options=[""] + keywords_list,
+        help=f"Top {len(keywords_list)} most common keywords"
+    )
+else:
+    keyword_filter = st.sidebar.text_input(
+        "Enter keywords:",
+        value="",
+        placeholder="e.g., road, building, paving",
+        help="Search for projects containing specific keywords"
+    )
 
 # Date range filter
 st.sidebar.subheader("Date Range")
