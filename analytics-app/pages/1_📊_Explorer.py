@@ -133,10 +133,13 @@ with tab1:
             # Apply date filter
             if not df.empty and 'awarded_on' in df.columns:
                 df['awarded_on'] = pd.to_datetime(df['awarded_on'], errors='coerce')
-                df = df[
-                    (df['awarded_on'] >= pd.Timestamp(start_date)) &
-                    (df['awarded_on'] <= pd.Timestamp(end_date))
-                ]
+                # Drop rows with invalid dates and filter by date range
+                df = df.dropna(subset=['awarded_on'])
+                if not df.empty:
+                    df = df[
+                        (df['awarded_on'].dt.date >= start_date) &
+                        (df['awarded_on'].dt.date <= end_date)
+                    ]
 
             st.session_state.projects_df = df
 
