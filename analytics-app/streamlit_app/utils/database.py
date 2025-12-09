@@ -34,9 +34,9 @@ class DatabaseConnection:
                     in the parent scraper folder.
         """
         if db_path is None:
-            # Default: look for database in parent scraper folder
-            # From bcxv-construction/streamlit_app/utils/ -> ../../Alberta Purchasing Construction/
-            default_path = Path(__file__).parent.parent.parent.parent / "scraper" / "Alberta Purchasing Construction" / "alberta_procurement.db"
+            # Default: look for database in project root
+            # From analytics-app/streamlit_app/utils/ -> ../../../alberta_procurement.db
+            default_path = Path(__file__).parent.parent.parent.parent / "alberta_procurement.db"
             self.db_path = str(default_path)
         else:
             self.db_path = db_path

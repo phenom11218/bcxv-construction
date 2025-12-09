@@ -1,4 +1,9 @@
+# Alberta Procurement Analytics - Unified Project
+# Combined .gitignore for scraper + analytics app
+
+# ============================================
 # Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -21,46 +26,82 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
+# ============================================
+# Virtual Environments
+# ============================================
 venv/
 ENV/
 env/
 .venv
+analytics-app/venv/
 
+# ============================================
+# Database Files (too large for Git)
+# ============================================
+*.db
+*.sqlite
+*.sqlite3
+alberta_procurement.db
+
+# ============================================
 # IDEs
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.claude/
 
+# ============================================
 # OS
+# ============================================
 .DS_Store
 Thumbs.db
 
+# ============================================
 # Streamlit
+# ============================================
 .streamlit/secrets.toml
 
-# Database (don't commit the actual database file)
-*.db
-*.sqlite
-*.sqlite3
-
+# ============================================
 # Logs
+# ============================================
 *.log
+logs/
+scraper/logs/
 
+# ============================================
 # Jupyter Notebooks
+# ============================================
 .ipynb_checkpoints/
 *.ipynb
 
+# ============================================
 # Environment variables
+# ============================================
 .env
 .env.local
 
+# ============================================
 # Testing
+# ============================================
 .pytest_cache/
 .coverage
 htmlcov/
 
+# ============================================
 # Documentation builds
+# ============================================
 docs/_build/
+
+# ============================================
+# Project-specific
+# ============================================
+# Sample/legacy data files (keep CSV/JSON for reference)
+# If you want to ignore them, uncomment:
+# *.csv
+# *.json
+
+# Temporary files
+nul
