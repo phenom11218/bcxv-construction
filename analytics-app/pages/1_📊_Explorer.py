@@ -268,64 +268,105 @@ with tab1:
             project_details = queries.get_project_with_bids(selected_ref)
 
             if project_details is not None and len(project_details) > 0:
+                project_df = project_details.get('project')
+                bids_df = project_details.get('bids')
+                award_df = project_details.get('award')
+                stats = project_details.get('stats', {})
+
                 st.markdown(f"### 📄 Project {selected_ref}")
 
                 # Project info
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Award Value", f"${project_details['award_value']:,.2f}" if project_details.get('award_value') else "N/A")
+                    if not award_df.empty and 'award_amount' in award_df.columns:
+                        award_amount = award_df['award_amount'].iloc[0]
+                        st.metric("Award Value", f"${award_amount:,.2f}" if pd.notna(award_amount) else "N/A")
+                    else:
+                        st.metric("Award Value", "N/A")
                 with col2:
-                    st.metric("Number of Bids", len(project_details.get('bids', [])))
+                    num_bids = len(bids_df) if not bids_df.empty else 0
+                    st.metric("Number of Bids", num_bids)
                 with col3:
-                    st.metric("Award Date", project_details.get('award_date', 'N/A'))
+                    if not award_df.empty and 'award_date' in award_df.columns:
+                        award_date = award_df['award_date'].iloc[0]
+                        st.metric("Award Date", award_date if pd.notna(award_date) else "N/A")
+                    else:
+                        st.metric("Award Date", "N/A")
 
                 # Description
                 st.markdown("**Description:**")
-                st.info(project_details.get('description', 'No description available'))
+                if not project_df.empty and 'description' in project_df.columns:
+                    description = project_df['description'].iloc[0]
+                    st.info(description if pd.notna(description) else 'No description available')
+                else:
+                    st.info('No description available')
 
                 # Bids table
-                if project_details.get('bids'):
+                if not bids_df.empty:
                     st.markdown("#### 💰 All Bids Received")
-                    bids_data = []
-                    for bid in project_details['bids']:
-                        bids_data.append({
-                            "Supplier": bid.get('supplier_name', 'Unknown'),
-                            "Bid Amount": f"${bid.get('bid_amount', 0):,.2f}",
-                            "Awarded": "✓ Winner" if bid.get('awarded') else ""
-                        })
 
-                    bids_df = pd.DataFrame(bids_data)
-                    st.dataframe(bids_df, use_container_width=True, hide_index=True)
+                    # Format bids for display
+                    display_bids = bids_df.copy()
+                    if 'bid_amount' in display_bids.columns:
+                        display_bids['bid_amount'] = display_bids['bid_amount'].apply(
+                            lambda x: f"${x:,.2f}" if pd.notna(x) else "N/A"
+                        )
+                    if 'is_winner' in display_bids.columns:
+                        display_bids['status'] = display_bids['is_winner'].apply(
+                            lambda x: "✓ Winner" if x else ""
+                        )
 
-                    # Bid statistics
-                    bid_amounts = [b['bid_amount'] for b in project_details['bids'] if b.get('bid_amount')]
-                    if len(bid_amounts) > 1:
+                    # Select columns to show
+                    show_cols = ['company_name', 'bid_amount', 'status', 'city']
+                    available_cols = [col for col in show_cols if col in display_bids.columns]
+
+                    st.dataframe(
+                        display_bids[available_cols],
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "company_name": "Supplier",
+                            "bid_amount": "Bid Amount",
+                            "status": "Status",
+                            "city": "City"
+                        }
+                    )
+
+                    # Bid statistics (use pre-calculated stats from database)
+                    if stats and len(stats) > 0:
                         st.markdown("#### 📊 Bid Statistics")
                         stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
                         with stat_col1:
-                            st.metric("Lowest Bid", f"${min(bid_amounts):,.2f}")
+                            st.metric("Lowest Bid", f"${stats['lowest_bid']:,.2f}")
                         with stat_col2:
-                            st.metric("Highest Bid", f"${max(bid_amounts):,.2f}")
+                            st.metric("Highest Bid", f"${stats['highest_bid']:,.2f}")
                         with stat_col3:
-                            st.metric("Average Bid", f"${sum(bid_amounts)/len(bid_amounts):,.2f}")
+                            st.metric("Average Bid", f"${stats['average_bid']:,.2f}")
                         with stat_col4:
-                            spread = ((max(bid_amounts) - min(bid_amounts)) / min(bid_amounts) * 100)
-                            st.metric("Spread", f"{spread:.1f}%")
+                            spread_pct = (stats['bid_spread'] / stats['lowest_bid'] * 100)
+                            st.metric("Spread", f"{spread_pct:.1f}%")
 
                         # Bid distribution chart
-                        fig = go.Figure()
-                        fig.add_trace(go.Bar(
-                            x=[b.get('supplier_name', 'Unknown')[:20] for b in project_details['bids']],
-                            y=bid_amounts,
-                            marker_color=['green' if b.get('awarded') else 'lightblue' for b in project_details['bids']]
-                        ))
-                        fig.update_layout(
-                            title="Bid Amounts Comparison",
-                            xaxis_title="Supplier",
-                            yaxis_title="Bid Amount ($)",
-                            height=400
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+                        if 'bid_amount' in bids_df.columns and 'company_name' in bids_df.columns:
+                            fig = go.Figure()
+                            bid_amounts = bids_df['bid_amount'].dropna()
+                            suppliers = bids_df.loc[bid_amounts.index, 'company_name'].apply(lambda x: str(x)[:20])
+                            colors = bids_df.loc[bid_amounts.index, 'is_winner'].apply(
+                                lambda x: 'green' if x else 'lightblue'
+                            ) if 'is_winner' in bids_df.columns else 'lightblue'
+
+                            fig.add_trace(go.Bar(
+                                x=suppliers,
+                                y=bid_amounts,
+                                marker_color=colors
+                            ))
+                            fig.update_layout(
+                                title="Bid Amounts Comparison",
+                                xaxis_title="Supplier",
+                                yaxis_title="Bid Amount ($)",
+                                height=400
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning("No bid data available for this project")
 
