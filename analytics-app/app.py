@@ -16,7 +16,7 @@ from pathlib import Path
 # Add utils to path for imports
 sys.path.append(str(Path(__file__).parent))
 
-from utils.database import DatabaseConnection
+from utils.database import get_smart_database_connection
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -60,7 +60,7 @@ with st.sidebar:
         # Initialize database connection (cached)
         @st.cache_resource
         def get_database():
-            return DatabaseConnection()
+            return get_smart_database_connection()
 
         db = get_database()
         stats = db.get_database_stats()
