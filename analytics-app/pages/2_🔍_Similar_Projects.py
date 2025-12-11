@@ -24,6 +24,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.database import DatabaseConnection, ConstructionProjectQueries
 from utils.text_processing import TextProcessor, create_combined_text
+from utils.api_fetcher import AlbertaAPIFetcher
 
 # Page config
 st.set_page_config(
@@ -37,6 +38,8 @@ if 'text_processor' not in st.session_state:
     st.session_state.text_processor = None
 if 'corpus_df' not in st.session_state:
     st.session_state.corpus_df = None
+if 'api_fetcher' not in st.session_state:
+    st.session_state.api_fetcher = AlbertaAPIFetcher()
 
 # Header
 st.title("🔍 Find Similar Projects")
@@ -84,29 +87,76 @@ target_text = None
 target_ref = None
 
 if search_mode == "Reference Number":
-    # Input reference number
+    # Input reference number or URL
     target_ref = st.sidebar.text_input(
-        "Project Reference",
-        placeholder="AB-2025-05281",
-        help="Enter the reference number of a project"
+        "Project Reference or URL",
+        placeholder="AB-2025-05281 or https://purchasing.alberta.ca/posting/AB-2025-05281",
+        help="Enter a project reference number or paste the full Alberta Purchasing URL"
     )
 
     if target_ref:
-        # Get project details
-        project_details = queries.get_project_details_for_similarity(target_ref)
+        # Parse the reference (handles both URLs and direct reference numbers)
+        api_fetcher = st.session_state.api_fetcher
+        parsed = api_fetcher.parse_reference_number(target_ref)
 
-        if project_details:
-            project = project_details['project']
-            target_text = f"{project['short_title']} {project['description']}"
-
-            # Show target project info
-            st.sidebar.success(f"Found: {target_ref}")
-            st.sidebar.caption(f"**{project['short_title'][:50]}...**")
-            st.sidebar.caption(f"Value: ${project['actual_value']:,.0f}")
-            st.sidebar.caption(f"Region: {project['region']}")
-        else:
-            st.sidebar.error(f"Project {target_ref} not found")
+        if not parsed:
+            st.sidebar.error("Invalid format. Expected: AB-YYYY-NNNNN (e.g., AB-2024-10281)")
             target_text = None
+        else:
+            year, posting_id = parsed
+            clean_ref = f"AB-{year}-{posting_id:05d}"
+
+            # Try to get from database first
+            project_details = queries.get_project_details_for_similarity(clean_ref)
+
+            if project_details:
+                # Found in database
+                project = project_details['project']
+                target_text = f"{project['short_title']} {project['description']}"
+
+                # Show target project info
+                st.sidebar.success(f"✓ Found in database: {clean_ref}")
+                st.sidebar.caption(f"**{project['short_title'][:60]}...**")
+                if project.get('actual_value'):
+                    st.sidebar.caption(f"💰 Value: ${project['actual_value']:,.0f}")
+                st.sidebar.caption(f"📍 Region: {project['region']}")
+
+                # Store project info for bid recommendations
+                if 'target_project' not in st.session_state or st.session_state.target_project.get('reference_number') != clean_ref:
+                    st.session_state.target_project = project
+
+            else:
+                # Not in database - fetch from API
+                with st.sidebar:
+                    with st.spinner(f"Fetching {clean_ref} from Alberta Purchasing API..."):
+                        api_data, error_msg = api_fetcher.fetch_by_reference(target_ref)
+
+                        if api_data:
+                            # Successfully fetched from API
+                            project_info = api_fetcher.extract_project_details(api_data)
+                            target_text = f"{project_info['short_title']} {project_info['description']}"
+
+                            st.success(f"🌐 Fetched live: {clean_ref}")
+                            st.caption(f"**{project_info['short_title'][:60]}...**")
+
+                            # Show value (estimated or actual)
+                            value = project_info.get('actual_value') or project_info.get('estimated_value')
+                            if value:
+                                st.caption(f"💰 Value: ${value:,.0f}")
+
+                            st.caption(f"📍 Region: {project_info['region']}")
+                            st.caption(f"📊 Status: {project_info['status_code']}")
+
+                            if not project_info.get('is_construction'):
+                                st.warning("⚠️ This is not a construction project")
+
+                            # Store for bid recommendations
+                            st.session_state.target_project = project_info
+
+                        else:
+                            # API fetch failed
+                            st.error(error_msg)
+                            target_text = None
 
 else:
     # Custom description
@@ -227,6 +277,61 @@ if target_text:
                     )
 
                 with tab2:
+                    # Bid Recommendation Section
+                    st.subheader("💡 Bid Recommendation")
+
+                    # Calculate bid statistics from similar projects
+                    similar_values = results_df['actual_value'].dropna()
+
+                    if len(similar_values) >= 3:
+                        avg_value = similar_values.mean()
+                        median_value = similar_values.median()
+                        std_value = similar_values.std()
+                        min_value = similar_values.min()
+                        max_value = similar_values.max()
+
+                        # Calculate recommended bid range (median ± 0.5 std dev)
+                        rec_low = max(median_value - (0.5 * std_value), min_value)
+                        rec_high = min(median_value + (0.5 * std_value), max_value)
+
+                        # Confidence level based on number of similar projects
+                        num_similar = len(similar_values)
+                        if num_similar >= 10:
+                            confidence = "High"
+                            confidence_color = "green"
+                        elif num_similar >= 5:
+                            confidence = "Medium"
+                            confidence_color = "orange"
+                        else:
+                            confidence = "Low"
+                            confidence_color = "red"
+
+                        # Display recommendation in a prominent box
+                        st.info(f"""
+                        **Based on {num_similar} similar awarded projects:**
+
+                        🎯 **Recommended Bid Range:** ${rec_low:,.0f} - ${rec_high:,.0f}
+
+                        📊 **Target Bid (Median):** ${median_value:,.0f}
+
+                        📈 **Confidence Level:** :{confidence_color}[{confidence}] ({num_similar} similar projects found)
+
+                        💰 **Historical Range:** ${min_value:,.0f} - ${max_value:,.0f}
+                        """)
+
+                        # Additional context
+                        st.caption("""
+                        💡 **How to use this:** The recommended bid range represents the middle 50% of similar project values.
+                        Bidding within this range increases your competitiveness while maintaining profitability.
+                        Consider adjusting based on your costs, capacity, and strategic priorities.
+                        """)
+
+                    else:
+                        st.warning(f"⚠️ Only {len(similar_values)} similar projects found. Need at least 3 for reliable bid recommendations.")
+
+                    st.divider()
+
+                    # Value Distribution Analysis
                     st.subheader("Value Distribution Analysis")
 
                     # Value statistics
@@ -326,29 +431,38 @@ if target_text:
                 st.warning(f"No projects found with similarity >= {min_similarity*100:.0f}%. Try lowering the threshold.")
 else:
     # Show instructions
-    st.info("👈 Enter a project reference number or description in the sidebar to find similar projects")
+    st.info("👈 Enter a project reference number, URL, or custom description in the sidebar to find similar projects")
 
     st.markdown("""
-    ### How it Works
+    ### 🚀 How it Works
 
     This tool uses **TF-IDF vectorization** and **cosine similarity** to find projects with similar:
-    - Project titles
-    - Descriptions
+    - Project titles and descriptions
     - Technical keywords
     - Project characteristics
 
-    ### Use Cases
+    **NEW:** You can now enter **any** Alberta procurement project - even if it's not in your database yet!
+    Just paste the URL like: `https://purchasing.alberta.ca/posting/AB-2024-10281`
 
-    1. **Pricing Research**: Find similar past projects to estimate competitive bid amounts
-    2. **Competition Analysis**: See who typically bids on similar projects
-    3. **Historical Context**: Learn from similar project outcomes and award patterns
-    4. **Market Intelligence**: Identify trends in similar project types
+    ### 💼 Use Cases
 
-    ### Tips
+    1. **💰 Bid Estimation**: Get recommended bid ranges based on similar past projects
+    2. **🎯 Competition Analysis**: See who typically bids on similar projects
+    3. **📊 Historical Context**: Learn from similar project outcomes and award patterns
+    4. **📈 Market Intelligence**: Identify trends in similar project types
+
+    ### 🔍 Input Options
+
+    - **Reference Number:** `AB-2024-10281`
+    - **Full URL:** `https://purchasing.alberta.ca/posting/AB-2024-10281`
+    - **Custom Description:** Paste any project description to find matches
+
+    ### ⚙️ Tips
 
     - **Higher similarity threshold** (70-90%): Very similar projects only
     - **Medium threshold** (30-60%): Related projects with some variation
     - **Lower threshold** (10-30%): Broader set of potentially relevant projects
+    - **More results** = Better bid recommendations (aim for 10+ similar projects)
     """)
 
     # Show example projects

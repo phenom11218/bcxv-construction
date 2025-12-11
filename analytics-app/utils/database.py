@@ -606,7 +606,7 @@ class ConstructionProjectQueries:
                 awarded_on
             FROM opportunities
             WHERE category_code = 'CNST'
-              AND status = 'AWARD'
+              AND status_code = 'AWARD'
               AND short_title IS NOT NULL
             ORDER BY awarded_on DESC
         """
@@ -679,7 +679,7 @@ class ConstructionProjectQueries:
             FROM opportunities o
             LEFT JOIN bidders b ON o.reference_number = b.opportunity_ref
             WHERE o.category_code = 'CNST'
-              AND o.status = 'AWARD'
+              AND o.status_code = 'AWARD'
               AND o.actual_value > 0
             GROUP BY o.reference_number
             HAVING num_bidders > 0
@@ -720,7 +720,7 @@ class ConstructionProjectQueries:
             FROM bidders b
             JOIN opportunities o ON b.opportunity_ref = o.reference_number
             WHERE o.category_code = 'CNST'
-              AND o.status = 'AWARD'
+              AND o.status_code = 'AWARD'
               AND b.company_name IS NOT NULL
               AND b.company_name != ''
         """
