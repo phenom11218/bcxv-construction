@@ -39,9 +39,8 @@ st.set_page_config(
 def get_database():
     return get_smart_database_connection()
 
-@st.cache_data
 def get_queries(_db):
-    """Get ConstructionProjectQueries instance (underscore prevents caching the db object)"""
+    """Get ConstructionProjectQueries instance (not cached - contains database connection)"""
     return ConstructionProjectQueries(_db)
 
 db = get_database()
