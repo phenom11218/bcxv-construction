@@ -38,12 +38,19 @@ This unified repository contains both the **data scraper** and the **analytics a
 
 The easiest way to explore the data:
 
+**For Git Bash (recommended):**
 ```bash
+cd analytics-app
+./run_app.sh
+```
+
+**For Windows CMD:**
+```cmd
 cd analytics-app
 run_app.bat
 ```
 
-This will:
+Both scripts will:
 1. ✅ Activate virtual environment
 2. ✅ Test database connection
 3. ✅ Launch web app in your browser
@@ -51,7 +58,7 @@ This will:
 **Manual start** (if you prefer):
 ```bash
 cd analytics-app
-source venv/Scripts/activate  # Windows Git Bash
+source venv/Scripts/activate  # Git Bash
 # OR
 venv\Scripts\activate.bat     # Windows CMD
 
@@ -62,15 +69,22 @@ The app will open at `http://localhost:8501`
 
 ### Scraper (Data Collection)
 
-The scraper has already collected all 2025 data, but you can:
+The scraper can collect data from **any year** (2010-2025+):
 
 ```bash
 cd scraper
-python check_progress.py      # View scraping progress
-python query_database.py      # Interactive database queries
+
+# Monitor progress for ALL years
+python check_progress.py
+
+# Scrape specific year
+python alberta_scraper_sqlite.py 2024 1 10284
+
+# Find endpoint for a year
+python find_endpoint.py 2024
 ```
 
-**Full scraper docs**: [scraper/README.md](scraper/README.md)
+**📖 Complete guide**: [MULTI_YEAR_SCRAPING_GUIDE.md](MULTI_YEAR_SCRAPING_GUIDE.md) | **Quick ref**: See below
 
 ---
 
@@ -78,18 +92,21 @@ python query_database.py      # Interactive database queries
 
 ```
 Alberta Purchasing Construction/
-├── alberta_procurement.db        # Shared database (461 MB)
+├── alberta_procurement.db        # Shared database (441 MB, growing)
+├── MULTI_YEAR_SCRAPING_GUIDE.md  # Complete multi-year scraping guide
 │
-├── scraper/                      # Data Collection (Complete ✓)
-│   ├── alberta_scraper_sqlite.py # Main scraper
+├── scraper/                      # Data Collection (Multi-Year Ready ✓)
+│   ├── alberta_scraper_sqlite.py # Main scraper (year-agnostic)
+│   ├── check_progress.py         # Universal progress monitor
+│   ├── find_endpoint.py          # Universal endpoint detector
 │   ├── database_setup.py         # Schema creation
-│   ├── check_progress.py         # Progress monitoring
-│   ├── query_database.py         # Interactive queries
-│   └── SESSION_SUMMARY.md        # Complete scraper guide
+│   ├── QUICK_START.md            # Quick reference card
+│   └── query_database.py         # Interactive queries
 │
 └── analytics-app/                # Web Application (Phase 2 Complete ✓)
     ├── app.py                    # Main Streamlit app
-    ├── run_app.bat              # Quick-start script
+    ├── run_app.sh               # Quick-start script (Git Bash)
+    ├── run_app.bat              # Quick-start script (Windows CMD)
     ├── pages/
     │   └── 1_📊_Explorer.py     # Historical Project Explorer
     ├── utils/
@@ -167,6 +184,69 @@ Alberta Purchasing Construction/
 6. `raw_json` - Complete API responses
 7. `scraping_log` - Data collection audit trail
 8. `statuses` - Opportunity status history
+
+---
+
+## 🔄 Multi-Year Data Collection
+
+The scraper supports **any year from 2010-2025+** using year-agnostic tools.
+
+### Check Progress for All Years
+
+```bash
+cd scraper
+python check_progress.py           # Auto-detects all years in database
+```
+
+**Output example:**
+```
+Year | Attempts | Found | 404s  | Range       | CNST | Status
+2025 |    7,557 | 6,604 |   948 |   1- 7557   |1,596 | Complete
+2024 |      500 |   110 |   390 |   1-  500   |   14 | 500/10284 (4.9%)
+```
+
+### Find Endpoint for Any Year
+
+Before scraping a new year, find its max posting number:
+
+```bash
+python find_endpoint.py 2024           # Find 2024 endpoint from start
+python find_endpoint.py 2024 10284     # Test from 10284 onwards
+python find_endpoint.py 2023           # Find 2023 endpoint
+```
+
+The tool automatically stops after 50 consecutive 404s (configurable).
+
+### Scrape Historical Data
+
+Once you know the endpoint, scrape the full year:
+
+```bash
+# Single batch (small years)
+python alberta_scraper_sqlite.py 2024 1 10284
+
+# Multiple batches (large years - recommended)
+python alberta_scraper_sqlite.py 2024 1 5000
+python alberta_scraper_sqlite.py 2024 5001 10284
+```
+
+**Features:**
+- ✅ Works with ANY year (2010-2099)
+- ✅ Resume capability (skips already-scraped postings)
+- ✅ Real-time progress monitoring
+- ✅ Respectful rate limiting (1-second delays)
+- ✅ Year-agnostic database schema
+
+**Estimated timelines:**
+- Single year (~10,000 postings): 3-4 hours
+- 2010-2023 (14 years): 2-4 weeks total
+
+**📖 Complete Guide:** See [MULTI_YEAR_SCRAPING_GUIDE.md](MULTI_YEAR_SCRAPING_GUIDE.md) for:
+- Step-by-step workflows
+- Year-by-year examples
+- Troubleshooting tips
+- Best practices
+- Advanced configurations
 
 ---
 
@@ -317,11 +397,50 @@ git push -u origin feature/2025-12-09-phase-3-ml
 
 ---
 
+## 🌐 Cloud Deployment
+
+**Make your app public and shareable!**
+
+This app can be deployed to **Streamlit Community Cloud** for FREE using **Turso** cloud SQLite hosting.
+
+### Quick Deploy
+
+1. **Sign up for Turso** (free): [https://turso.tech/](https://turso.tech/)
+2. **Upload database** to Turso cloud
+3. **Deploy to Streamlit Cloud** with one click
+4. **Share your public URL** with anyone!
+
+### Full Guide
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete step-by-step instructions (30-45 mins).
+
+### What You Get
+
+- ✅ **Public URL**: `https://your-app-name.streamlit.app`
+- ✅ **Free hosting**: Unlimited public apps
+- ✅ **Cloud database**: 9 GB free tier (you use 663 MB)
+- ✅ **Auto-updates**: Push code → instant deployment
+- ✅ **Professional**: Share with clients, portfolio, resume
+
+### Architecture
+
+```
+Streamlit Cloud (App) ◄─► Turso Cloud (SQLite DB)
+        │
+        ▼
+   👥 Public Users
+```
+
+**Total Cost**: $0/month 🎉
+
+---
+
 ## 📞 Support & Feedback
 
 - **Issues**: Report bugs via GitHub Issues
 - **Documentation**: See individual phase completion docs
 - **Questions**: Check inline code documentation
+- **Deployment Help**: See [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
 
@@ -341,7 +460,7 @@ Private repository - All rights reserved
 
 - [ ] Clone repository
 - [ ] Navigate to `analytics-app/`
-- [ ] Run `run_app.bat`
+- [ ] Run `./run_app.sh` (Git Bash) or `run_app.bat` (Windows CMD)
 - [ ] Click **📊 Explorer** in sidebar
 - [ ] Start exploring 831 construction projects!
 

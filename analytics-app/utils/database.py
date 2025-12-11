@@ -15,6 +15,49 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
+import re
+from collections import Counter
+import os
+
+
+def get_smart_database_connection():
+    """
+    Smart factory function that auto-detects the best database connection.
+
+    Checks in order:
+    1. Streamlit secrets (for cloud deployment)
+    2. Environment variables (for local config)
+    3. Falls back to local SQLite file
+
+    Returns:
+        DatabaseConnection or TursoDatabaseConnection
+
+    Usage in Streamlit apps:
+        db = get_smart_database_connection()
+        queries = ConstructionProjectQueries(db)
+    """
+    # Try Streamlit secrets first (cloud deployment)
+    try:
+        import streamlit as st
+        if 'database' in st.secrets and st.secrets['database'].get('type') == 'turso':
+            # Use Turso cloud database
+            from .database_turso import TursoDatabaseConnection
+            return TursoDatabaseConnection(
+                database_url=st.secrets['turso']['database_url'],
+                auth_token=st.secrets['turso']['auth_token']
+            )
+    except (ImportError, KeyError, FileNotFoundError):
+        pass
+
+    # Try environment variables (alternative config method)
+    turso_url = os.getenv('TURSO_DATABASE_URL')
+    turso_token = os.getenv('TURSO_AUTH_TOKEN')
+    if turso_url and turso_token:
+        from .database_turso import TursoDatabaseConnection
+        return TursoDatabaseConnection(turso_url, turso_token)
+
+    # Fall back to local SQLite
+    return DatabaseConnection()
 
 
 class DatabaseConnection:
@@ -151,7 +194,12 @@ class ConstructionProjectQueries:
         limit: Optional[int] = None,
         min_value: Optional[float] = None,
         max_value: Optional[float] = None,
-        region: Optional[str] = None
+        region: Optional[str] = None,
+        keywords: Optional[str] = None,
+        supplier: Optional[str] = None,
+        min_bidders: Optional[int] = None,
+        max_bidders: Optional[int] = None,
+        size_bucket: Optional[str] = None
     ) -> pd.DataFrame:
         """
         Get awarded construction projects with optional filters.
@@ -161,46 +209,87 @@ class ConstructionProjectQueries:
             min_value: Minimum award amount
             max_value: Maximum award amount
             region: Filter by region (partial match)
+            keywords: Search keywords in title and description (partial match)
+            supplier: Filter projects where this company submitted a bid
+            min_bidders: Minimum number of bidders (competition level)
+            max_bidders: Maximum number of bidders
+            size_bucket: Project size category (Small, Medium, Large, XL)
 
         Returns:
-            pd.DataFrame with columns: reference_number, short_title, description,
-            actual_value, num_bidders, region, post_date, close_date, awarded_on,
-            delivery_start_date, delivery_end_date
+            pd.DataFrame with project details
         """
+        # Handle size buckets
+        if size_bucket:
+            if size_bucket == "Small (<$500K)":
+                max_value = 500000
+            elif size_bucket == "Medium ($500K-$2M)":
+                min_value = 500000
+                max_value = 2000000
+            elif size_bucket == "Large ($2M-$10M)":
+                min_value = 2000000
+                max_value = 10000000
+            elif size_bucket == "XL (>$10M)":
+                min_value = 10000000
+                max_value = None
+
         query = """
             SELECT
-                reference_number,
-                short_title,
-                description,
-                actual_value,
-                num_bidders,
-                region,
-                post_date,
-                close_date,
-                awarded_on,
-                delivery_start_date,
-                delivery_end_date,
-                solicitation_type
-            FROM opportunities
-            WHERE category_code = 'CNST'
-              AND status_code = 'AWARD'
+                o.reference_number,
+                o.short_title,
+                o.description,
+                o.actual_value,
+                o.num_bidders,
+                o.region,
+                o.post_date,
+                o.close_date,
+                o.awarded_on,
+                o.delivery_start_date,
+                o.delivery_end_date,
+                o.solicitation_type
+            FROM opportunities o
+            WHERE o.category_code = 'CNST'
+              AND o.status_code = 'AWARD'
         """
 
         params = []
 
+        # Supplier filter (join with bidders table)
+        if supplier is not None:
+            query = query.replace(
+                "FROM opportunities o",
+                """FROM opportunities o
+                INNER JOIN bidders b ON o.reference_number = b.opportunity_ref"""
+            )
+            query += " AND b.company_name = ?"
+            params.append(supplier)
+
         if min_value is not None:
-            query += " AND actual_value >= ?"
+            query += " AND o.actual_value >= ?"
             params.append(min_value)
 
         if max_value is not None:
-            query += " AND actual_value <= ?"
+            query += " AND o.actual_value <= ?"
             params.append(max_value)
 
         if region is not None:
-            query += " AND region LIKE ?"
+            query += " AND o.region LIKE ?"
             params.append(f"%{region}%")
 
-        query += " ORDER BY awarded_on DESC"
+        if keywords is not None:
+            query += " AND (o.short_title LIKE ? OR o.description LIKE ?)"
+            keyword_pattern = f"%{keywords}%"
+            params.append(keyword_pattern)
+            params.append(keyword_pattern)
+
+        if min_bidders is not None:
+            query += " AND o.num_bidders >= ?"
+            params.append(min_bidders)
+
+        if max_bidders is not None:
+            query += " AND o.num_bidders <= ?"
+            params.append(max_bidders)
+
+        query += " ORDER BY o.awarded_on DESC"
 
         if limit is not None:
             query += f" LIMIT {limit}"
@@ -366,6 +455,346 @@ class ConstructionProjectQueries:
         """
 
         params = [category, status] + params
+
+        return self.db.execute_query(query, tuple(params))
+
+    def get_unique_regions(self) -> List[str]:
+        """
+        Get all unique regions/cities from awarded construction projects.
+
+        Returns:
+            List of unique region names, sorted alphabetically
+        """
+        query = """
+            SELECT DISTINCT region
+            FROM opportunities
+            WHERE category_code = 'CNST'
+              AND status_code = 'AWARD'
+              AND region IS NOT NULL
+              AND region != ''
+            ORDER BY region
+        """
+        result = self.db.execute_query(query)
+        return result['region'].tolist() if not result.empty else []
+
+    def get_common_keywords(self, limit: int = 100) -> List[str]:
+        """
+        Extract common keywords from construction project titles.
+
+        Args:
+            limit: Maximum number of keywords to extract before sorting
+
+        Returns:
+            List of common keywords, sorted alphabetically
+        """
+        query = """
+            SELECT short_title
+            FROM opportunities
+            WHERE category_code = 'CNST'
+              AND status_code = 'AWARD'
+              AND short_title IS NOT NULL
+        """
+        result = self.db.execute_query(query)
+
+        if result.empty:
+            return []
+
+        # Common stop words to exclude
+        stop_words = {
+            'the', 'and', 'for', 'of', 'in', 'to', 'a', 'an', 'is', 'at', 'by',
+            'on', 'with', 'from', 'as', 'or', 'be', 'are', 'was', 'were', 'will',
+            'project', 'projects', 'work', 'works', 'construction', 'phase',
+            '2025', '2024', '2023', 'rfq', 'rfp', 'tender'
+        }
+
+        all_words = []
+        for title in result['short_title']:
+            if pd.notna(title):
+                # Extract words (alphanumeric, keeping hyphens)
+                words = re.findall(r'\b[a-zA-Z][\w-]*\b', str(title).lower())
+                # Filter out stop words and very short words
+                words = [w for w in words if len(w) > 3 and w not in stop_words]
+                all_words.extend(words)
+
+        # Count occurrences and get most common
+        word_counts = Counter(all_words)
+        # Get top keywords by frequency, then sort alphabetically
+        common_keywords = [word for word, count in word_counts.most_common(limit)]
+        common_keywords.sort()  # Sort alphabetically
+
+        return common_keywords
+
+    def get_all_suppliers(self) -> List[str]:
+        """
+        Get all unique supplier/company names that have submitted bids.
+
+        Returns:
+            List of unique supplier names, sorted alphabetically
+        """
+        query = """
+            SELECT DISTINCT company_name
+            FROM bidders
+            WHERE company_name IS NOT NULL
+              AND company_name != ''
+            ORDER BY company_name
+        """
+        result = self.db.execute_query(query)
+        return result['company_name'].tolist() if not result.empty else []
+
+    def get_supplier_stats(self, company_name: str) -> Dict[str, Any]:
+        """
+        Get comprehensive statistics for a specific supplier.
+
+        Args:
+            company_name: Name of the supplier/company
+
+        Returns:
+            Dict with bid statistics, win rate, typical bid behavior
+        """
+        # Get all bids by this supplier
+        bids_query = """
+            SELECT
+                b.bid_amount,
+                b.is_winner,
+                b.opportunity_ref,
+                o.actual_value,
+                o.awarded_on,
+                o.region,
+                o.short_title
+            FROM bidders b
+            JOIN opportunities o ON b.opportunity_ref = o.reference_number
+            WHERE b.company_name = ?
+              AND o.category_code = 'CNST'
+            ORDER BY o.awarded_on DESC
+        """
+        bids = self.db.execute_query(bids_query, (company_name,))
+
+        stats = {
+            'total_bids': len(bids),
+            'wins': 0,
+            'losses': 0,
+            'win_rate': 0.0,
+            'total_won_value': 0.0,
+            'avg_bid_amount': 0.0,
+            'regions': [],
+            'recent_projects': []
+        }
+
+        if bids.empty:
+            return stats
+
+        # Calculate statistics
+        stats['wins'] = bids['is_winner'].sum()
+        stats['losses'] = len(bids) - stats['wins']
+        stats['win_rate'] = (stats['wins'] / len(bids) * 100) if len(bids) > 0 else 0.0
+
+        # Total value won
+        won_bids = bids[bids['is_winner'] == True]
+        if not won_bids.empty:
+            stats['total_won_value'] = won_bids['actual_value'].sum()
+
+        # Average bid amount
+        if 'bid_amount' in bids.columns:
+            stats['avg_bid_amount'] = bids['bid_amount'].mean()
+
+        # Active regions
+        if 'region' in bids.columns:
+            region_counts = bids['region'].value_counts()
+            stats['regions'] = region_counts.head(5).to_dict()
+
+        # Recent projects (last 5)
+        stats['recent_projects'] = bids.head(5).to_dict('records')
+
+        return stats
+
+    def get_interested_suppliers(self, reference_number: str) -> pd.DataFrame:
+        """
+        Get all companies that viewed a project (interested) but may not have bid.
+
+        Args:
+            reference_number: Project reference number
+
+        Returns:
+            DataFrame with interested supplier information
+        """
+        query = """
+            SELECT
+                business_name,
+                city,
+                province,
+                country,
+                description
+            FROM interested_suppliers
+            WHERE opportunity_ref = ?
+            ORDER BY business_name
+        """
+        return self.db.execute_query(query, (reference_number,))
+
+    def get_projects_for_similarity(self) -> pd.DataFrame:
+        """
+        Get all awarded construction projects with text for similarity analysis.
+
+        Returns:
+            DataFrame with reference_number, short_title, description, actual_value, region
+        """
+        query = """
+            SELECT
+                reference_number,
+                short_title,
+                description,
+                actual_value,
+                region,
+                awarded_on
+            FROM opportunities
+            WHERE category_code = 'CNST'
+              AND status_code = 'AWARD'
+              AND short_title IS NOT NULL
+            ORDER BY awarded_on DESC
+        """
+        return self.db.execute_query(query)
+
+    def get_project_details_for_similarity(self, reference_number: str) -> Dict[str, Any]:
+        """
+        Get comprehensive project details for similarity comparison.
+
+        Args:
+            reference_number: Project reference number
+
+        Returns:
+            Dictionary with project details including bids
+        """
+        # Get project info
+        project_query = """
+            SELECT
+                reference_number,
+                short_title,
+                description,
+                actual_value,
+                region,
+                awarded_on
+            FROM opportunities
+            WHERE reference_number = ?
+        """
+        project_df = self.db.execute_query(project_query, (reference_number,))
+
+        if project_df.empty:
+            return None
+
+        # Get bids for context
+        bids_query = """
+            SELECT
+                company_name,
+                bid_amount,
+                is_winner
+            FROM bidders
+            WHERE opportunity_ref = ?
+            ORDER BY bid_amount
+        """
+        bids_df = self.db.execute_query(bids_query, (reference_number,))
+
+        return {
+            'project': project_df.iloc[0].to_dict(),
+            'bids': bids_df.to_dict('records'),
+            'num_bids': len(bids_df)
+        }
+
+    def get_training_data_for_prediction(self) -> pd.DataFrame:
+        """
+        Get training data for machine learning bid prediction.
+
+        Returns:
+            DataFrame with project features and actual award values
+        """
+        query = """
+            SELECT
+                o.reference_number,
+                o.short_title,
+                o.description,
+                o.actual_value,
+                o.region,
+                o.awarded_on,
+                COUNT(b.id) as num_bidders,
+                MIN(b.bid_amount) as lowest_bid,
+                MAX(b.bid_amount) as highest_bid,
+                AVG(b.bid_amount) as average_bid
+            FROM opportunities o
+            LEFT JOIN bidders b ON o.reference_number = b.opportunity_ref
+            WHERE o.category_code = 'CNST'
+              AND o.status_code = 'AWARD'
+              AND o.actual_value > 0
+            GROUP BY o.reference_number
+            HAVING num_bidders > 0
+            ORDER BY o.awarded_on DESC
+        """
+        return self.db.execute_query(query)
+
+    def get_competitive_landscape(
+        self,
+        keywords: Optional[List[str]] = None,
+        region: Optional[str] = None,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        limit: int = 20
+    ) -> pd.DataFrame:
+        """
+        Get competitive landscape analysis - who typically bids on similar projects.
+
+        Args:
+            keywords: Keywords to match in project title/description
+            region: Region filter
+            min_value: Minimum project value
+            max_value: Maximum project value
+            limit: Max number of competitors to return
+
+        Returns:
+            DataFrame with supplier names, bid counts, win rates
+        """
+        query = """
+            SELECT
+                b.company_name,
+                COUNT(*) as total_bids,
+                SUM(CASE WHEN b.is_winner = 1 THEN 1 ELSE 0 END) as wins,
+                ROUND(100.0 * SUM(CASE WHEN b.is_winner = 1 THEN 1 ELSE 0 END) / COUNT(*), 2) as win_rate,
+                AVG(b.bid_amount) as avg_bid_amount,
+                MIN(o.awarded_on) as first_bid_date,
+                MAX(o.awarded_on) as last_bid_date
+            FROM bidders b
+            JOIN opportunities o ON b.opportunity_ref = o.reference_number
+            WHERE o.category_code = 'CNST'
+              AND o.status_code = 'AWARD'
+              AND b.company_name IS NOT NULL
+              AND b.company_name != ''
+        """
+
+        params = []
+
+        # Add filters
+        if keywords:
+            keyword_conditions = []
+            for keyword in keywords:
+                keyword_conditions.append("(o.short_title LIKE ? OR o.description LIKE ?)")
+                params.extend([f"%{keyword}%", f"%{keyword}%"])
+            query += " AND (" + " OR ".join(keyword_conditions) + ")"
+
+        if region:
+            query += " AND o.region LIKE ?"
+            params.append(f"%{region}%")
+
+        if min_value is not None:
+            query += " AND o.actual_value >= ?"
+            params.append(min_value)
+
+        if max_value is not None:
+            query += " AND o.actual_value <= ?"
+            params.append(max_value)
+
+        query += """
+            GROUP BY b.company_name
+            HAVING total_bids >= 2
+            ORDER BY total_bids DESC, win_rate DESC
+            LIMIT ?
+        """
+        params.append(limit)
 
         return self.db.execute_query(query, tuple(params))
 
