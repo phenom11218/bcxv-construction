@@ -22,7 +22,7 @@ from pathlib import Path
 # Add utils to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.database import DatabaseConnection, ConstructionProjectQueries
+from utils.database import get_smart_database_connection, ConstructionProjectQueries
 from utils.text_processing import TextProcessor, create_combined_text
 from utils.api_fetcher import AlbertaAPIFetcher
 
@@ -52,7 +52,7 @@ Use this to discover comparable bids, pricing, and competition patterns.
 @st.cache_resource
 def get_db_connection():
     """Get cached database connection."""
-    return DatabaseConnection()
+    return get_smart_database_connection()
 
 @st.cache_resource
 def get_queries(_db):
