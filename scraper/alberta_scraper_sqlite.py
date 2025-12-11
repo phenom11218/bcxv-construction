@@ -278,7 +278,7 @@ def fetch_opportunity(year: int, posting_num: int) -> Optional[Dict[str, Any]]:
 # Main Scraping Function
 # ========================================
 
-def scrape_range(year: int, start_num: int, end_num: int, skip_existing: bool = True):
+def scrape_range(year: int, start_num: int, end_num: int, skip_existing: bool = True, auto_stop_after: int = 50):
     """
     Scrape a range of postings and store in database.
 
@@ -287,6 +287,7 @@ def scrape_range(year: int, start_num: int, end_num: int, skip_existing: bool = 
         start_num: Starting posting number (e.g., 1)
         end_num: Ending posting number (e.g., 500)
         skip_existing: Skip postings already in database (default: True)
+        auto_stop_after: Auto-stop after N consecutive 404s (default: 50, set to 0 to disable)
     """
 
     conn = sqlite3.connect(DB_PATH)
@@ -295,6 +296,7 @@ def scrape_range(year: int, start_num: int, end_num: int, skip_existing: bool = 
     found = 0
     skipped = 0
     errors = 0
+    consecutive_404s = 0  # Track consecutive not-found results
 
     print(f"\n{'='*70}")
     print(f"SCRAPING ALBERTA PROCUREMENT DATA")
@@ -302,6 +304,7 @@ def scrape_range(year: int, start_num: int, end_num: int, skip_existing: bool = 
     print(f"Year: {year}")
     print(f"Range: {start_num} to {end_num} ({total:,} postings)")
     print(f"Skip existing: {skip_existing}")
+    print(f"Auto-stop after: {auto_stop_after} consecutive 404s" if auto_stop_after > 0 else "Auto-stop: Disabled")
     print(f"Database: {DB_PATH}")
     print(f"{'='*70}\n")
 
@@ -316,18 +319,20 @@ def scrape_range(year: int, start_num: int, end_num: int, skip_existing: bool = 
                 elapsed = time.time() - start_time
                 rate = i / elapsed if elapsed > 0 else 0
                 remaining = (total - i) / rate if rate > 0 else 0
-                print(f"Progress: {i:4}/{total} ({i/total*100:5.1f}%) | Found: {found:4} | Skipped: {skipped:3} | Errors: {errors:2} | ETA: {remaining/60:.1f}m")
+                print(f"Progress: {i:4}/{total} ({i/total*100:5.1f}%) | Found: {found:4} | Skipped: {skipped:3} | Errors: {errors:2} | Consecutive 404s: {consecutive_404s:2} | ETA: {remaining/60:.1f}m")
 
             # Check if already scraped
             if skip_existing and is_already_scraped(conn, year, num):
                 skipped += 1
+                consecutive_404s = 0  # Reset counter - we found a valid posting (already in DB)
                 continue
 
             # Fetch from API
             result, status_code = fetch_opportunity(year, num)
 
             if result:
-                # Successfully fetched
+                # Successfully fetched - reset consecutive 404 counter
+                consecutive_404s = 0
                 found += 1
                 try:
                     insert_full_posting(conn, year, num, result)
@@ -349,12 +354,20 @@ def scrape_range(year: int, start_num: int, end_num: int, skip_existing: bool = 
                     conn.commit()
 
             elif status_code == 404:
-                # Not found - normal, just log it
+                # Not found - increment consecutive 404 counter
+                consecutive_404s += 1
                 log_scrape_attempt(conn, year, num, None, False, "Not found (404)", 404)
                 conn.commit()
 
+                # Check if we should auto-stop
+                if auto_stop_after > 0 and consecutive_404s >= auto_stop_after:
+                    print(f"\n[AUTO-STOP] Reached {consecutive_404s} consecutive 404s. Stopping scrape.")
+                    print(f"Last posting checked: {posting_id}")
+                    break
+
             else:
-                # Other error
+                # Other error - reset consecutive 404s (could be temporary network issue)
+                consecutive_404s = 0
                 errors += 1
                 error_msg = f"HTTP {status_code}" if status_code else "Network error"
                 log_scrape_attempt(conn, year, num, None, False, error_msg, status_code)
@@ -476,24 +489,30 @@ if __name__ == "__main__":
     # Default parameters (can be overridden via command line)
     year = 2025
     start_num = 1
-    end_num = 100
+    end_num = 99999  # Very large number - rely on auto-stop instead
+    auto_stop = 50  # Auto-stop after 50 consecutive 404s
 
     # Parse command line arguments if provided
-    if len(sys.argv) >= 4:
+    # Usage: python alberta_scraper_sqlite.py <year> <start_num> [end_num] [auto_stop]
+    if len(sys.argv) >= 3:
         year = int(sys.argv[1])
         start_num = int(sys.argv[2])
-        end_num = int(sys.argv[3])
+        if len(sys.argv) >= 4:
+            end_num = int(sys.argv[3])
+        if len(sys.argv) >= 5:
+            auto_stop = int(sys.argv[4])
 
     print(f"\nConfiguration:")
     print(f"  Year: {year}")
     print(f"  Start: {start_num}")
-    print(f"  End: {end_num}")
+    print(f"  End: {end_num} (or auto-stop)")
+    print(f"  Auto-stop after: {auto_stop} consecutive 404s")
     print(f"  Total to check: {end_num - start_num + 1:,}")
     print("\nPress Ctrl+C to stop at any time (progress will be saved)")
     print("="*70)
 
     # Start scraping
-    scrape_range(year, start_num, end_num, skip_existing=True)
+    scrape_range(year, start_num, end_num, skip_existing=True, auto_stop_after=auto_stop)
 
     # Show status
     get_scrape_status(year)
