@@ -35,9 +35,12 @@ class TursoDatabaseConnection:
         self.database_url = database_url
         self.auth_token = auth_token
 
+        # Convert libsql:// URL to https:// for HTTP API (more reliable than WebSocket)
+        http_url = database_url.replace('libsql://', 'https://')
+
         # Create Turso client (using sync version for Streamlit)
         self.client = libsql_client.create_client_sync(
-            url=database_url,
+            url=http_url,
             auth_token=auth_token
         )
 
