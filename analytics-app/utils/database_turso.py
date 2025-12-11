@@ -13,7 +13,7 @@ Purpose: Cloud deployment support
 
 import pandas as pd
 from typing import Optional, Dict, Any
-from libsql_client import create_client
+import libsql_client
 
 
 class TursoDatabaseConnection:
@@ -35,8 +35,8 @@ class TursoDatabaseConnection:
         self.database_url = database_url
         self.auth_token = auth_token
 
-        # Create Turso client
-        self.client = create_client(
+        # Create Turso client (using sync version for Streamlit)
+        self.client = libsql_client.create_client_sync(
             url=database_url,
             auth_token=auth_token
         )
