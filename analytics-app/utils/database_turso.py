@@ -65,18 +65,24 @@ class TursoDatabaseConnection:
 
             # Convert to pandas DataFrame
             if result_set.rows:
-                # Get column names
+                # Get column names from result_set
                 columns = result_set.columns if hasattr(result_set, 'columns') else []
 
-                # Convert rows to list of dicts
+                # Convert rows - they come as tuples/lists, not dicts
                 data = []
                 for row in result_set.rows:
-                    # Each row is a dict-like object
-                    row_dict = dict(row) if hasattr(row, '__iter__') else {}
-                    data.append(row_dict)
+                    # Row is a tuple/list of values, not a dict
+                    if isinstance(row, (list, tuple)):
+                        data.append(row)
+                    elif isinstance(row, dict):
+                        # If already a dict, extract values in column order
+                        data.append([row.get(col) for col in columns])
+                    else:
+                        # Convert to list if some other iterable
+                        data.append(list(row))
 
-                # Create DataFrame
-                df = pd.DataFrame(data, columns=columns if columns else None)
+                # Create DataFrame with explicit columns
+                df = pd.DataFrame(data, columns=columns)
                 return df
             else:
                 # Empty result
