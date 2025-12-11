@@ -9,7 +9,7 @@
 - [x] ✅ Code pushed to GitHub
 - [x] ✅ Turso CLI installed
 - [x] ✅ Turso account created
-- [x] ✅ Database created: `alberta-construction`
+- [x] ✅ Database created: `alberta-procurement`
 - [ ] ⏳ **Verify database import completed**
 - [ ] ⏳ **Get Turso credentials**
 - [ ] ⏳ **Deploy to Streamlit Cloud**
@@ -23,10 +23,10 @@
 ```bash
 # Check if import completed
 turso db list
-# You should see: alberta-construction
+# You should see: alberta-procurement
 
 # Test the data
-turso db shell alberta-construction "SELECT COUNT(*) FROM opportunities;"
+turso db shell alberta-procurement "SELECT COUNT(*) FROM opportunities;"
 # Should show: 6607
 ```
 
@@ -44,19 +44,19 @@ turso db shell alberta-construction "SELECT COUNT(*) FROM opportunities;"
 
 ```bash
 # Get Database URL
-turso db show alberta-construction
+turso db show alberta-procurement
 ```
 
 **Copy the URL** - it looks like:
 ```
-libsql://alberta-construction-XXXX-YYYY.turso.io
+libsql://alberta-procurement-XXXX-YYYY.turso.io
 ```
 
 **Then get Auth Token:**
 
 ```bash
 # Create authentication token
-turso db tokens create alberta-construction
+turso db tokens create alberta-procurement
 ```
 
 **Copy the token** - it's a long string starting with `eyJ...`
@@ -97,7 +97,7 @@ turso db tokens create alberta-construction
 
    **App URL** (choose custom name):
    ```
-   alberta-construction-analytics
+   alberta-procurement-analytics
    ```
    (Or any name you want)
 
@@ -199,7 +199,7 @@ Your app is now live! Share it:
 1. Clear Streamlit cache: Go to app menu → "Rerun"
 2. Check database has data:
    ```bash
-   turso db shell alberta-construction "SELECT COUNT(*) FROM opportunities;"
+   turso db shell alberta-procurement "SELECT COUNT(*) FROM opportunities;"
    ```
 3. Check app logs in Streamlit Cloud dashboard
 
@@ -263,13 +263,13 @@ Your app is now live! Share it:
 turso db list
 
 # Show database info
-turso db show alberta-construction
+turso db show alberta-procurement
 
 # Query database
-turso db shell alberta-construction "SELECT COUNT(*) FROM opportunities;"
+turso db shell alberta-procurement "SELECT COUNT(*) FROM opportunities;"
 
 # Create new token
-turso db tokens create alberta-construction
+turso db tokens create alberta-procurement
 
 # Check who you're logged in as
 turso auth whoami
@@ -311,7 +311,7 @@ git pull origin feature/2025-12-08-phase-2-explorer
 
 **In WSL, run:**
 ```bash
-turso db shell alberta-construction "SELECT COUNT(*) FROM opportunities;"
+turso db shell alberta-procurement "SELECT COUNT(*) FROM opportunities;"
 ```
 
 **Then come back here and follow Steps 2-5!**

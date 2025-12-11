@@ -69,14 +69,14 @@ This will open a browser window. Click "Authorize" to connect the CLI.
 ### Step 1.4: Create Your Cloud Database
 
 ```bash
-turso db create alberta-construction
+turso db create alberta-procurement
 ```
 
 **Expected output:**
 ```
 Created group default at [location] in 12 seconds.
-Created database alberta-construction at group default in 3 seconds.
-Start an interactive SQL shell with: turso db shell alberta-construction
+Created database alberta-procurement at group default in 3 seconds.
+Start an interactive SQL shell with: turso db shell alberta-procurement
 ```
 
 ### Step 1.5: Upload Your Local Database
@@ -92,7 +92,7 @@ ls -lh alberta_procurement.db
 **Upload to Turso:**
 ```bash
 # Open Turso shell
-turso db shell alberta-construction
+turso db shell alberta-procurement
 
 # In the Turso shell, restore from your local file
 .restore alberta_procurement.db
@@ -107,21 +107,21 @@ turso db shell alberta-construction
 sqlite3 alberta_procurement.db .dump > dump.sql
 
 # Import to Turso
-turso db shell alberta-construction < dump.sql
+turso db shell alberta-procurement < dump.sql
 ```
 
 ### Step 1.6: Get Your Turso Credentials
 
 **Get Database URL:**
 ```bash
-turso db show alberta-construction
+turso db show alberta-procurement
 ```
 
-Copy the **URL** (looks like: `libsql://alberta-construction-YOUR-USERNAME.turso.io`)
+Copy the **URL** (looks like: `libsql://alberta-procurement-YOUR-USERNAME.turso.io`)
 
 **Create Auth Token:**
 ```bash
-turso db tokens create alberta-construction
+turso db tokens create alberta-procurement
 ```
 
 Copy the **token** (long string starting with `eyJ...`)
@@ -131,7 +131,7 @@ Copy the **token** (long string starting with `eyJ...`)
 ### Step 1.7: Verify Upload (Optional)
 
 ```bash
-turso db shell alberta-construction
+turso db shell alberta-procurement
 
 # Run test query
 SELECT COUNT(*) FROM opportunities;
@@ -166,7 +166,7 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 type = "turso"  # Change from "local" to "turso"
 
 [turso]
-database_url = "libsql://alberta-construction-YOUR-USERNAME.turso.io"  # Your URL from Step 1.6
+database_url = "libsql://alberta-procurement-YOUR-USERNAME.turso.io"  # Your URL from Step 1.6
 auth_token = "eyJ..."  # Your token from Step 1.6
 ```
 
@@ -215,7 +215,7 @@ git push origin main
 - Repository: `phenom11218/bcxv-construction`
 - Branch: `main` (or your feature branch)
 - Main file path: `analytics-app/app.py`
-- App URL: Choose a custom URL like `alberta-construction-analytics`
+- App URL: Choose a custom URL like `alberta-procurement-analytics`
 
 **3. Configure Secrets:**
 - Click "Advanced settings"
@@ -226,7 +226,7 @@ git push origin main
 type = "turso"
 
 [turso]
-database_url = "libsql://alberta-construction-YOUR-USERNAME.turso.io"
+database_url = "libsql://alberta-procurement-YOUR-USERNAME.turso.io"
 auth_token = "eyJ..."
 ```
 
@@ -241,7 +241,7 @@ auth_token = "eyJ..."
 
 Once deployment completes (look for green checkmark ✓):
 
-1. Click on the app URL (e.g., `https://alberta-construction-analytics.streamlit.app`)
+1. Click on the app URL (e.g., `https://alberta-procurement-analytics.streamlit.app`)
 2. Wait for the app to load
 3. Check the sidebar - should show "✓ Connected" and project counts
 4. Test "Similar Projects" page:
@@ -278,7 +278,7 @@ cd scraper
 python alberta_scraper_sqlite.py
 
 # 2. Upload to Turso
-turso db shell alberta-construction
+turso db shell alberta-procurement
 .restore ../alberta_procurement.db
 .quit
 
@@ -308,12 +308,12 @@ turso db shell alberta-construction
 1. Check secrets are configured correctly in Streamlit Cloud
 2. Verify Turso credentials are valid:
    ```bash
-   turso db show alberta-construction
-   turso db tokens create alberta-construction
+   turso db show alberta-procurement
+   turso db tokens create alberta-procurement
    ```
 3. Check Turso database has data:
    ```bash
-   turso db shell alberta-construction
+   turso db shell alberta-procurement
    SELECT COUNT(*) FROM opportunities;
    ```
 
@@ -340,7 +340,7 @@ turso db shell alberta-construction
 sqlite3 alberta_procurement.db .schema > schema.sql
 
 # Import schema to Turso
-turso db shell alberta-construction < schema.sql
+turso db shell alberta-procurement < schema.sql
 
 # Export data in chunks (opportunities table)
 sqlite3 alberta_procurement.db "SELECT * FROM opportunities" > opportunities.csv
@@ -416,7 +416,7 @@ jobs:
 
       - name: Upload to Turso
         env:
-          TURSO_DB: alberta-construction
+          TURSO_DB: alberta-procurement
         run: |
           turso auth login --token ${{ secrets.TURSO_TOKEN }}
           turso db shell $TURSO_DB ".restore alberta_procurement.db"
@@ -429,7 +429,7 @@ jobs:
 ```bat
 cd C:\path\to\scraper
 python alberta_scraper_sqlite.py
-turso db shell alberta-construction .restore ..\alberta_procurement.db
+turso db shell alberta-procurement .restore ..\alberta_procurement.db
 ```
 
 2. Task Scheduler → Create Basic Task → Weekly

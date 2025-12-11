@@ -113,7 +113,7 @@ Alberta Purchasing Construction/
   - 831 awarded construction contracts
 
 ### Cloud Database (Turso)
-- **Name:** `alberta-construction`
+- **Name:** `alberta-procurement`
 - **Type:** libSQL (SQLite-compatible)
 - **Location:** Turso Cloud
 - **Status:** ✅ Ready (imported successfully)
@@ -139,7 +139,7 @@ Alberta Purchasing Construction/
 ### ✅ 3. Database Setup
 - [x] Turso CLI installed (WSL)
 - [x] Turso account created
-- [x] Database imported: `alberta-construction`
+- [x] Database imported: `alberta-procurement`
 - [x] Data verified (6,607 projects)
 - [x] Credentials obtained
 
@@ -157,14 +157,14 @@ Alberta Purchasing Construction/
 
 **After completing Turso setup, you should have:**
 
-1. **Database URL** (format: `libsql://alberta-construction-XXXX.turso.io`)
+1. **Database URL** (format: `libsql://alberta-procurement-XXXX.turso.io`)
 2. **Auth Token** (format: `eyJ...` - long JWT string)
 
 **How to get them:**
 ```bash
 # In WSL
-turso db show alberta-construction
-turso db tokens create alberta-construction
+turso db show alberta-procurement
+turso db tokens create alberta-procurement
 ```
 
 ---
@@ -259,7 +259,7 @@ https://YOUR-APP-NAME.streamlit.app
 ### Database Connection Failed
 - Check Turso credentials in Streamlit secrets
 - Verify database exists: `turso db list`
-- Test connection: `turso db shell alberta-construction`
+- Test connection: `turso db shell alberta-procurement`
 
 ### App Won't Start
 - Check logs in Streamlit Cloud dashboard
@@ -289,13 +289,13 @@ https://YOUR-APP-NAME.streamlit.app
 ### Immediate (Now)
 1. **Verify Turso import completed**
    ```bash
-   turso db shell alberta-construction "SELECT COUNT(*) FROM opportunities;"
+   turso db shell alberta-procurement "SELECT COUNT(*) FROM opportunities;"
    ```
 
 2. **Get credentials**
    ```bash
-   turso db show alberta-construction
-   turso db tokens create alberta-construction
+   turso db show alberta-procurement
+   turso db tokens create alberta-procurement
    ```
 
 3. **Commit final changes**
