@@ -46,7 +46,17 @@ def get_smart_database_connection():
                 database_url=st.secrets['turso']['database_url'],
                 auth_token=st.secrets['turso']['auth_token']
             )
-    except (ImportError, KeyError, FileNotFoundError):
+    except ImportError:
+        # Streamlit not available (not running in Streamlit)
+        pass
+    except (KeyError, AttributeError) as e:
+        # Secrets exist but missing required keys
+        print(f"[WARNING] Turso secrets configuration error: {e}")
+        print(f"[WARNING] Falling back to local database")
+        pass
+    except Exception as e:
+        # Other errors - log and continue
+        print(f"[WARNING] Unexpected error accessing Turso secrets: {e}")
         pass
 
     # Try environment variables (alternative config method)

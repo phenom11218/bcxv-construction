@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Add utils to path
 sys.path.append(str(Path(__file__).parent.parent))
-from utils.database import DatabaseConnection, ConstructionProjectQueries
+from utils.database import get_smart_database_connection, ConstructionProjectQueries
 
 # Page configuration
 st.set_page_config(
@@ -37,7 +37,7 @@ st.set_page_config(
 # Initialize database connection
 @st.cache_resource
 def get_database():
-    return DatabaseConnection()
+    return get_smart_database_connection()
 
 @st.cache_data
 def get_queries(_db):

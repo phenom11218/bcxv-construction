@@ -16,7 +16,7 @@ from pathlib import Path
 # Add utils to path for imports
 sys.path.append(str(Path(__file__).parent))
 
-from utils.database import DatabaseConnection
+from utils.database import get_smart_database_connection
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -57,10 +57,27 @@ with st.sidebar:
     st.subheader("📊 Database Status")
 
     try:
+        # Debug: Show what's in secrets
+        st.caption("🔍 Debug Info:")
+        if hasattr(st, 'secrets'):
+            if 'database' in st.secrets:
+                st.caption(f"✓ Found [database] section, type={st.secrets['database'].get('type', 'NOT SET')}")
+            else:
+                st.warning("❌ No [database] section in secrets")
+
+            if 'turso' in st.secrets:
+                st.caption(f"✓ Found [turso] section")
+                st.caption(f"  - database_url: {st.secrets['turso'].get('database_url', 'NOT SET')[:50]}...")
+                st.caption(f"  - auth_token: {'SET' if st.secrets['turso'].get('auth_token') else 'NOT SET'}")
+            else:
+                st.warning("❌ No [turso] section in secrets")
+        else:
+            st.error("❌ st.secrets not available")
+
         # Initialize database connection (cached)
         @st.cache_resource
         def get_database():
-            return DatabaseConnection()
+            return get_smart_database_connection()
 
         db = get_database()
         stats = db.get_database_stats()
@@ -78,6 +95,8 @@ with st.sidebar:
     except Exception as e:
         st.error("✗ Database connection failed")
         st.error(f"Error: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         st.stop()
 
     st.markdown("---")
