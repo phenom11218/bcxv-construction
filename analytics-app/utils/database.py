@@ -17,6 +17,47 @@ from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
 import re
 from collections import Counter
+import os
+
+
+def get_smart_database_connection():
+    """
+    Smart factory function that auto-detects the best database connection.
+
+    Checks in order:
+    1. Streamlit secrets (for cloud deployment)
+    2. Environment variables (for local config)
+    3. Falls back to local SQLite file
+
+    Returns:
+        DatabaseConnection or TursoDatabaseConnection
+
+    Usage in Streamlit apps:
+        db = get_smart_database_connection()
+        queries = ConstructionProjectQueries(db)
+    """
+    # Try Streamlit secrets first (cloud deployment)
+    try:
+        import streamlit as st
+        if 'database' in st.secrets and st.secrets['database'].get('type') == 'turso':
+            # Use Turso cloud database
+            from .database_turso import TursoDatabaseConnection
+            return TursoDatabaseConnection(
+                database_url=st.secrets['turso']['database_url'],
+                auth_token=st.secrets['turso']['auth_token']
+            )
+    except (ImportError, KeyError, FileNotFoundError):
+        pass
+
+    # Try environment variables (alternative config method)
+    turso_url = os.getenv('TURSO_DATABASE_URL')
+    turso_token = os.getenv('TURSO_AUTH_TOKEN')
+    if turso_url and turso_token:
+        from .database_turso import TursoDatabaseConnection
+        return TursoDatabaseConnection(turso_url, turso_token)
+
+    # Fall back to local SQLite
+    return DatabaseConnection()
 
 
 class DatabaseConnection:

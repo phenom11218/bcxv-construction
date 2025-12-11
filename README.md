@@ -397,11 +397,50 @@ git push -u origin feature/2025-12-09-phase-3-ml
 
 ---
 
+## 🌐 Cloud Deployment
+
+**Make your app public and shareable!**
+
+This app can be deployed to **Streamlit Community Cloud** for FREE using **Turso** cloud SQLite hosting.
+
+### Quick Deploy
+
+1. **Sign up for Turso** (free): [https://turso.tech/](https://turso.tech/)
+2. **Upload database** to Turso cloud
+3. **Deploy to Streamlit Cloud** with one click
+4. **Share your public URL** with anyone!
+
+### Full Guide
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete step-by-step instructions (30-45 mins).
+
+### What You Get
+
+- ✅ **Public URL**: `https://your-app-name.streamlit.app`
+- ✅ **Free hosting**: Unlimited public apps
+- ✅ **Cloud database**: 9 GB free tier (you use 663 MB)
+- ✅ **Auto-updates**: Push code → instant deployment
+- ✅ **Professional**: Share with clients, portfolio, resume
+
+### Architecture
+
+```
+Streamlit Cloud (App) ◄─► Turso Cloud (SQLite DB)
+        │
+        ▼
+   👥 Public Users
+```
+
+**Total Cost**: $0/month 🎉
+
+---
+
 ## 📞 Support & Feedback
 
 - **Issues**: Report bugs via GitHub Issues
 - **Documentation**: See individual phase completion docs
 - **Questions**: Check inline code documentation
+- **Deployment Help**: See [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
 

@@ -6,3 +6,7 @@ altair>=5.0.0
 scikit-learn>=1.3.0
 python-dateutil>=2.8.0
 joblib>=1.3.0
+requests>=2.31.0
+
+# Turso Cloud SQLite support (for deployment)
+libsql-client>=0.3.0
