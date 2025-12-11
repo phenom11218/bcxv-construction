@@ -66,24 +66,34 @@ class TursoDatabaseConnection:
             # Convert to pandas DataFrame
             if result_set.rows:
                 # Get column names from result_set
-                columns = result_set.columns if hasattr(result_set, 'columns') else []
+                columns = list(result_set.columns) if hasattr(result_set, 'columns') else []
 
-                # Convert rows - they come as tuples/lists, not dicts
+                # Convert rows to list format
+                # Turso rows can be dicts, tuples, or special objects - convert uniformly
                 data = []
                 for row in result_set.rows:
-                    # Row is a tuple/list of values, not a dict
-                    if isinstance(row, (list, tuple)):
-                        data.append(row)
-                    elif isinstance(row, dict):
-                        # If already a dict, extract values in column order
-                        data.append([row.get(col) for col in columns])
-                    else:
-                        # Convert to list if some other iterable
-                        data.append(list(row))
+                    # Try to extract values as a list
+                    try:
+                        if hasattr(row, 'values'):
+                            # Row has a values() method (dict-like)
+                            row_values = list(row.values())
+                        elif hasattr(row, '__iter__') and not isinstance(row, (str, bytes)):
+                            # Row is iterable (list/tuple)
+                            row_values = list(row)
+                        else:
+                            # Fallback: wrap in list
+                            row_values = [row]
+                        data.append(row_values)
+                    except Exception as e:
+                        print(f"[WARNING] Failed to parse row: {e}, row type: {type(row)}")
+                        continue
 
                 # Create DataFrame with explicit columns
-                df = pd.DataFrame(data, columns=columns)
-                return df
+                if data:
+                    df = pd.DataFrame(data, columns=columns if len(columns) > 0 else None)
+                    return df
+                else:
+                    return pd.DataFrame()
             else:
                 # Empty result
                 return pd.DataFrame()
