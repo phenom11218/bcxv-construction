@@ -105,3 +105,21 @@ docs/_build/
 
 # Temporary files
 nul
+
+# Temporary SQL files and exports
+*.sql
+!schema.sql
+
+# Temporary upload scripts (experimental)
+upload_*.sh
+fix_*.sh
+temp_*.sql
+backup.sql
+missing_years.sql
+fixed_*.sql
+export_years_*.sql
+
+# Turso upload guides (superseded by main docs)
+UPLOAD_2023_GUIDE.md
+TURSO_*.md
+
