@@ -193,8 +193,49 @@ def update_posting(conn, year: int, posting_num: int, dry_run: bool = False) -> 
     data, status_code = fetch_opportunity(year, posting_num)
 
     if not data:
-        result['error'] = f"HTTP {status_code}"
-        return result
+        # CRITICAL: Preserve historical data if API returns 404
+        # The posting may have been archived/removed from API, but we keep our record
+        if status_code == 404:
+            result['error'] = "API_ARCHIVED"
+            result['success'] = True  # Mark as successful - we preserved the data
+
+            if not dry_run:
+                # Update tracking info but DON'T delete data
+                # Mark as archived if columns exist (graceful degradation)
+                try:
+                    cursor.execute("""
+                        UPDATE opportunities
+                        SET last_scraped_at = ?,
+                            scrape_count = scrape_count + 1,
+                            is_archived = 1,
+                            archived_at = COALESCE(archived_at, ?)
+                        WHERE year = ? AND posting_number = ?
+                    """, (datetime.now().isoformat(), datetime.now().isoformat(), year, posting_num))
+                except sqlite3.OperationalError:
+                    # Columns don't exist yet - update without archived flags
+                    cursor.execute("""
+                        UPDATE opportunities
+                        SET last_scraped_at = ?,
+                            scrape_count = scrape_count + 1
+                        WHERE year = ? AND posting_number = ?
+                    """, (datetime.now().isoformat(), year, posting_num))
+
+                # Add a note in scrape_log
+                cursor.execute("""
+                    INSERT INTO scrape_log
+                    (year, posting_number, reference_number, success, error_message, http_status_code, scraped_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (year, posting_num, ref_num, True,
+                      "Preserved historical data - posting removed from API", 404,
+                      datetime.now().isoformat()))
+
+                conn.commit()
+
+            return result
+        else:
+            # Other errors (500, network issues, etc.) - return error
+            result['error'] = f"HTTP {status_code}"
+            return result
 
     # Extract new status
     new_status = data['opportunity'].get('statusCode')
