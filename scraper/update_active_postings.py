@@ -349,7 +349,7 @@ def run_tier(conn, tier_num: int, postings: List[Tuple], tier_name: str,
 
             if result['status_changed']:
                 stats['status_changed'] += 1
-                print(f"  [{ref_num}] Status change: {result['old_status']} → {result['new_status']}")
+                print(f"  [{ref_num}] Status change: {result['old_status']} -> {result['new_status']}")
 
             if result['award_added']:
                 stats['award_added'] += 1
@@ -444,19 +444,19 @@ def main():
         print()
 
         if not args.dry_run:
-            print("✓ Database updated successfully")
+            print("[OK] Database updated successfully")
             print()
             print("Next steps:")
             print("  - Run analyze_award_timing.py to see award statistics")
             print("  - Check status_history table for transition timeline")
             print("  - Schedule this script to run weekly for continuous updates")
         else:
-            print("⊘ Dry run complete - no changes made")
+            print("[SKIP] Dry run complete - no changes made")
 
         print()
 
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
         import traceback
         traceback.print_exc()
 

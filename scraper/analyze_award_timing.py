@@ -254,7 +254,7 @@ def main():
     args = parser.parse_args()
 
     if not DB_PATH.exists():
-        print(f"✗ Error: Database not found at {DB_PATH}")
+        print(f"[ERROR] Error: Database not found at {DB_PATH}")
         return
 
     conn = sqlite3.connect(DB_PATH)
@@ -264,7 +264,7 @@ def main():
         analyze_pending_awards(conn)
 
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
         import traceback
         traceback.print_exc()
 
