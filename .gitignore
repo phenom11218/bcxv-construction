@@ -123,3 +123,7 @@ export_years_*.sql
 UPLOAD_2023_GUIDE.md
 TURSO_*.md
 
+
+# Turso sync state and backups
+.turso_sync_state
+database_backups/

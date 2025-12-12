@@ -196,7 +196,7 @@ Examples:
             print(f"\n\n[INTERRUPTED] Scraping interrupted for {year}. Progress saved.")
             break
         except Exception as e:
-            print(f"\n✗ Error scraping {year}: {e}")
+            print(f"\n[ERROR] Error scraping {year}: {e}")
             import traceback
             traceback.print_exc()
             continue

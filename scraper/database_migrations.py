@@ -36,10 +36,10 @@ def run_migration(conn):
             ALTER TABLE opportunities
             ADD COLUMN last_scraped_at TEXT
         """)
-        print("  ✓ Added last_scraped_at column")
+        print("  [OK] Added last_scraped_at column")
     except sqlite3.OperationalError as e:
         if "duplicate column name" in str(e).lower():
-            print("  ⊘ Column already exists, skipping")
+            print("  [SKIP] Column already exists, skipping")
         else:
             raise
 
@@ -50,10 +50,10 @@ def run_migration(conn):
             ALTER TABLE opportunities
             ADD COLUMN scrape_count INTEGER DEFAULT 1
         """)
-        print("  ✓ Added scrape_count column")
+        print("  [OK] Added scrape_count column")
     except sqlite3.OperationalError as e:
         if "duplicate column name" in str(e).lower():
-            print("  ⊘ Column already exists, skipping")
+            print("  [SKIP] Column already exists, skipping")
         else:
             raise
 
@@ -64,10 +64,10 @@ def run_migration(conn):
             ALTER TABLE opportunities
             ADD COLUMN previous_status TEXT
         """)
-        print("  ✓ Added previous_status column")
+        print("  [OK] Added previous_status column")
     except sqlite3.OperationalError as e:
         if "duplicate column name" in str(e).lower():
-            print("  ⊘ Column already exists, skipping")
+            print("  [SKIP] Column already exists, skipping")
         else:
             raise
 
@@ -86,7 +86,7 @@ def run_migration(conn):
             FOREIGN KEY (reference_number) REFERENCES opportunities(reference_number)
         )
     """)
-    print("  ✓ Created status_history table")
+    print("  [OK] Created status_history table")
 
     # Migration 5: Initialize last_scraped_at with scraped_at values
     print("\nMigration 5: Initializing last_scraped_at from scraped_at...")
@@ -96,7 +96,7 @@ def run_migration(conn):
         WHERE last_scraped_at IS NULL AND scraped_at IS NOT NULL
     """)
     updated = cursor.rowcount
-    print(f"  ✓ Initialized {updated:,} records")
+    print(f"  [OK] Initialized {updated:,} records")
 
     # Migration 6: Initialize scrape_count to 1 for existing records
     print("\nMigration 6: Initializing scrape_count...")
@@ -106,7 +106,7 @@ def run_migration(conn):
         WHERE scrape_count IS NULL
     """)
     updated = cursor.rowcount
-    print(f"  ✓ Initialized {updated:,} records")
+    print(f"  [OK] Initialized {updated:,} records")
 
     # Create index for faster queries
     print("\nMigration 7: Creating performance indexes...")
@@ -114,19 +114,19 @@ def run_migration(conn):
         CREATE INDEX IF NOT EXISTS idx_status_award
         ON opportunities(status_code, awarded_on)
     """)
-    print("  ✓ Created idx_status_award")
+    print("  [OK] Created idx_status_award")
 
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_last_scraped
         ON opportunities(last_scraped_at)
     """)
-    print("  ✓ Created idx_last_scraped")
+    print("  [OK] Created idx_last_scraped")
 
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_close_date
         ON opportunities(close_date)
     """)
-    print("  ✓ Created idx_close_date")
+    print("  [OK] Created idx_close_date")
 
     conn.commit()
 
@@ -151,10 +151,10 @@ def verify_migrations(conn):
     missing = required_columns - columns
 
     if missing:
-        print(f"  ✗ Missing columns: {missing}")
+        print(f"  [ERROR] Missing columns: {missing}")
         return False
     else:
-        print(f"  ✓ All tracking columns present")
+        print(f"  [OK] All tracking columns present")
 
     # Check status_history table
     cursor.execute("""
@@ -162,9 +162,9 @@ def verify_migrations(conn):
         WHERE type='table' AND name='status_history'
     """)
     if cursor.fetchone():
-        print("  ✓ status_history table exists")
+        print("  [OK] status_history table exists")
     else:
-        print("  ✗ status_history table missing")
+        print("  [ERROR] status_history table missing")
         return False
 
     # Show statistics
@@ -194,7 +194,7 @@ def verify_migrations(conn):
 def main():
     """Run migrations."""
     if not DB_PATH.exists():
-        print(f"✗ Error: Database not found at {DB_PATH}")
+        print(f"[ERROR] Error: Database not found at {DB_PATH}")
         print("  Please ensure the database exists first.")
         return
 
@@ -220,7 +220,7 @@ def main():
         print()
 
     except Exception as e:
-        print(f"\n✗ Migration failed: {e}")
+        print(f"\n[ERROR] Migration failed: {e}")
         import traceback
         traceback.print_exc()
 
